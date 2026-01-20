@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-type AppStatus = 'idle' | 'loading' | 'success' | 'error'
+type AppStatus = 'idle' | 'capturing' | 'translating' | 'success' | 'error'
 
 interface TranslateResult {
   image: string
@@ -11,6 +11,7 @@ interface TranslateResult {
 declare global {
   interface Window {
     electronAPI: {
+      onCaptureStart: (callback: () => void) => void
       onTranslateStart: (callback: () => void) => void
       onTranslateResult: (callback: (result: TranslateResult) => void) => void
       onTranslateError: (callback: (error: string) => void) => void
@@ -31,10 +32,14 @@ function App() {
   useEffect(() => {
     if (!window.electronAPI) return
 
-    window.electronAPI.onTranslateStart(() => {
-      setStatus('loading')
+    window.electronAPI.onCaptureStart(() => {
+      setStatus('capturing')
       setResult(null)
       setError('')
+    })
+
+    window.electronAPI.onTranslateStart(() => {
+      setStatus('translating')
     })
 
     window.electronAPI.onTranslateResult((data) => {
@@ -96,7 +101,13 @@ function App() {
         {status === 'idle' && (
           <span className="text-white/60 text-xs">按 Alt+Q 截图翻译</span>
         )}
-        {status === 'loading' && (
+        {status === 'capturing' && (
+          <span className="text-yellow-400 text-xs flex items-center gap-2">
+            <span className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+            截图中...
+          </span>
+        )}
+        {status === 'translating' && (
           <span className="text-blue-400 text-xs flex items-center gap-2">
             <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
             翻译中...

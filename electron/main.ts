@@ -75,7 +75,7 @@ function registerShortcuts() {
 }
 
 async function captureScreen() {
-  mainWindow?.webContents.send('translate-start')
+  mainWindow?.webContents.send('capture-start')
   mainWindow?.show()
 
   exec(`screencapture -i "${TEMP_SCREENSHOT_PATH}"`, async (error) => {
@@ -88,6 +88,8 @@ async function captureScreen() {
       mainWindow?.webContents.send('translate-error', '截图已取消')
       return
     }
+
+    mainWindow?.webContents.send('translate-start')
 
     try {
       const imageBuffer = fs.readFileSync(TEMP_SCREENSHOT_PATH)

@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  onCaptureStart: (callback: () => void) => {
+    ipcRenderer.on('capture-start', callback)
+  },
   onTranslateStart: (callback: () => void) => {
     ipcRenderer.on('translate-start', callback)
   },
