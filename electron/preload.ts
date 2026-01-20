@@ -1,5 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+interface AppConfig {
+  appid: string
+  secret: string
+  fromLang: string
+  toLang: string
+}
+
+interface LangOption {
+  code: string
+  name: string
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   onCaptureStart: (callback: () => void) => {
     ipcRenderer.on('capture-start', callback)
@@ -22,7 +34,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => {
     ipcRenderer.send('close-window')
   },
-  openSettings: () => {
-    ipcRenderer.send('open-settings')
+  getConfig: (): Promise<AppConfig> => {
+    return ipcRenderer.invoke('get-config')
+  },
+  saveConfig: (config: Partial<AppConfig>): Promise<AppConfig> => {
+    return ipcRenderer.invoke('save-config', config)
+  },
+  getSupportedLangs: (): Promise<LangOption[]> => {
+    return ipcRenderer.invoke('get-supported-langs')
   },
 })

@@ -12,16 +12,12 @@ import path from 'path'
 import { exec } from 'child_process'
 import fs from 'fs'
 import os from 'os'
-import { translateImage, BaiduConfig } from './baidu-api'
+import { translateImage } from './baidu-api'
+import { loadConfig, saveConfig, isConfigValid, SUPPORTED_LANGS, AppConfig } from './config'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
-
-// TODO: 填入你的百度翻译 API 凭证
-const API_CONFIG: BaiduConfig = {
-  appid: '20260118002542265',
-  secret: '_8kyQel3L_HRlNYGMDdq',
-}
+let currentConfig: AppConfig
 
 const TEMP_SCREENSHOT_PATH = path.join(os.tmpdir(), 'litetrans_screenshot.png')
 
@@ -95,12 +91,16 @@ async function captureScreen() {
       const imageBuffer = fs.readFileSync(TEMP_SCREENSHOT_PATH)
       fs.unlinkSync(TEMP_SCREENSHOT_PATH)
 
-      if (API_CONFIG.appid === 'YOUR_APPID') {
-        mainWindow?.webContents.send('translate-error', '请先配置百度 API 凭证')
+      if (!isConfigValid(currentConfig)) {
+        mainWindow?.webContents.send('translate-error', '请先在设置中配置百度 API 凭证')
         return
       }
 
-      const result = await translateImage(imageBuffer, API_CONFIG)
+      const result = await translateImage(
+        imageBuffer,
+        { appid: currentConfig.appid, secret: currentConfig.secret },
+        { from: currentConfig.fromLang, to: currentConfig.toLang }
+      )
 
       if (result.error_code === '0' && result.data) {
         mainWindow?.webContents.send('translate-result', {
@@ -129,7 +129,21 @@ ipcMain.on('close-window', () => {
   mainWindow?.hide()
 })
 
+ipcMain.handle('get-config', () => {
+  return currentConfig
+})
+
+ipcMain.handle('save-config', (_event, config: Partial<AppConfig>) => {
+  currentConfig = saveConfig(config)
+  return currentConfig
+})
+
+ipcMain.handle('get-supported-langs', () => {
+  return SUPPORTED_LANGS
+})
+
 app.whenReady().then(() => {
+  currentConfig = loadConfig()
   createWindow()
   createTray()
   registerShortcuts()
