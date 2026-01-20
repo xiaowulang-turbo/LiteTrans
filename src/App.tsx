@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { checkAndUseQuota } from './lib/supabase'
 
 type AppStatus = 'idle' | 'loading' | 'success' | 'error'
-type ViewMode = 'main' | 'login'
+type ViewMode = 'main' | 'login' | 'profile'
 
 interface TranslateResult {
   image: string
@@ -43,6 +43,9 @@ function App() {
       setView('main')
     }
   }, [authLoading, user, view])
+
+  const handleGoToProfile = () => setView('profile')
+  const handleBackToMain = () => setView('main')
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -159,6 +162,87 @@ function App() {
     )
   }
 
+  if (view === 'profile') {
+    const userEmail = user?.email || '未知'
+    const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail.split('@')[0]
+    const avatarUrl = user?.user_metadata?.avatar_url
+    const provider = user?.app_metadata?.provider || '未知'
+    const createdAt = user?.created_at ? new Date(user.created_at).toLocaleDateString('zh-CN') : '未知'
+
+    return (
+      <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
+        <div
+          className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          <button
+            onClick={handleBackToMain}
+            className="text-white/60 hover:text-white/80 text-xs"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            ← 返回
+          </button>
+          <span className="text-white/80 text-sm font-medium">个人中心</span>
+          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <button
+              onClick={handleClose}
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center p-6 gap-4">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border-2 border-white/20" />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-2xl">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <h2 className="text-white text-lg font-medium">{userName}</h2>
+
+          <div className="w-full max-w-[240px] space-y-3 text-sm">
+            <div className="flex justify-between text-white/60">
+              <span>邮箱</span>
+              <span className="text-white/80 truncate max-w-[140px]">{userEmail}</span>
+            </div>
+            <div className="flex justify-between text-white/60">
+              <span>登录方式</span>
+              <span className="text-white/80 capitalize">{provider}</span>
+            </div>
+            <div className="flex justify-between text-white/60">
+              <span>注册时间</span>
+              <span className="text-white/80">{createdAt}</span>
+            </div>
+            {quota?.success && (
+              <>
+                <div className="flex justify-between text-white/60">
+                  <span>套餐类型</span>
+                  <span className="text-white/80 capitalize">{quota.plan || 'free'}</span>
+                </div>
+                <div className="flex justify-between text-white/60">
+                  <span>今日配额</span>
+                  <span className={quota.remaining === 0 ? 'text-red-400' : 'text-white/80'}>
+                    {quota.remaining}/{quota.daily_limit}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* <div className="px-4 py-3 border-t border-glass-border">
+          <button
+            onClick={handleLogout}
+            className="w-full py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm transition-colors"
+          >
+            退出登录
+          </button>
+        </div> */}
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
       {/* 标题栏 */}
@@ -204,10 +288,10 @@ function App() {
             </span>
           )}
           <button
-            onClick={handleLogout}
+            onClick={handleGoToProfile}
             className="text-white/40 hover:text-white/60 text-xs"
           >
-            退出
+            我的
           </button>
         </div>
       </div>
