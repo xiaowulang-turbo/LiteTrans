@@ -71,21 +71,21 @@ function registerShortcuts() {
 }
 
 async function captureScreen() {
-  mainWindow?.webContents.send('capture-start')
-  mainWindow?.show()
+  mainWindow?.hide()
 
   exec(`screencapture -i "${TEMP_SCREENSHOT_PATH}"`, async (error) => {
     if (error) {
       mainWindow?.webContents.send('translate-error', '截图失败')
+      mainWindow?.show()
       return
     }
 
     if (!fs.existsSync(TEMP_SCREENSHOT_PATH)) {
-      mainWindow?.webContents.send('translate-error', '截图已取消')
       return
     }
 
     mainWindow?.webContents.send('translate-start')
+    mainWindow?.show()
 
     try {
       const imageBuffer = fs.readFileSync(TEMP_SCREENSHOT_PATH)
