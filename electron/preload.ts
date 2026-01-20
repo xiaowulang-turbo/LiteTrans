@@ -43,4 +43,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSupportedLangs: (): Promise<LangOption[]> => {
     return ipcRenderer.invoke('get-supported-langs')
   },
+  openExternal: (url: string) => {
+    ipcRenderer.send('open-external', url)
+  },
+  onOAuthCallback: (callback: (url: string) => void) => {
+    ipcRenderer.on('oauth-callback', (_event, url) => callback(url))
+  },
 })

@@ -7,6 +7,7 @@ import {
   nativeImage,
   Tray,
   Menu,
+  shell,
 } from 'electron'
 import path from 'path'
 import { exec } from 'child_process'
@@ -20,6 +21,23 @@ let tray: Tray | null = null
 let currentConfig: AppConfig
 
 const TEMP_SCREENSHOT_PATH = path.join(os.tmpdir(), 'litetrans_screenshot.png')
+const PROTOCOL_NAME = 'litetrans'
+
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL_NAME, process.execPath, [path.resolve(process.argv[1])])
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL_NAME)
+}
+
+function handleOAuthCallback(url: string) {
+  const urlObj = new URL(url)
+  if (urlObj.protocol === `${PROTOCOL_NAME}:` && urlObj.host === 'auth') {
+    mainWindow?.show()
+    mainWindow?.webContents.send('oauth-callback', url)
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -141,6 +159,25 @@ ipcMain.handle('save-config', (_event, config: Partial<AppConfig>) => {
 ipcMain.handle('get-supported-langs', () => {
   return SUPPORTED_LANGS
 })
+
+ipcMain.on('open-external', (_event, url: string) => {
+  shell.openExternal(url)
+})
+
+app.on('open-url', (_event, url) => {
+  handleOAuthCallback(url)
+})
+
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const url = argv.find(arg => arg.startsWith(`${PROTOCOL_NAME}://`))
+    if (url) handleOAuthCallback(url)
+    mainWindow?.show()
+  })
+}
 
 app.whenReady().then(() => {
   currentConfig = loadConfig()
