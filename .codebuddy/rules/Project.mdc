@@ -1,0 +1,181 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-01-20T04:11:50.924Z
+provider: 
+---
+
+这是一个为您量身定制的、基于 **Electron + 百度图片翻译 API** 的完整初版产品方案。
+
+鉴于您是 JS 全栈工程师，本方案侧重于**“技术复用性”**与**“快速交付”**，尽量使用 Web 技术栈解决原生问题。
+
+---
+
+# 🚀 产品代号：LiteTrans (截图即译 MVP)
+
+## 1. 产品定义
+
+一款极简的跨平台桌面工具。用户通过快捷键唤起截图，自动识别并翻译截图中的文字，以“图文对照”或“文本覆盖”的形式展示结果。
+
+**核心理念：** 极简交互、云端算力、即用即走。
+
+---
+
+## 2. 功能需求说明书 (PRD)
+
+### 2.1 用户交互流程 (Happy Path)
+
+1. **静默运行：** 软件启动后无主界面，仅在系统托盘（Tray）显示图标。
+2. **唤起截图：** 用户按下全局快捷键（默认 `Alt + Q`）。
+3. **选取区域：** 调用系统原生截图工具（利用系统自带的交互，省去开发选区遮罩的成本），用户框选目标区域。
+4. **自动处理：** 选区确定后，软件自动获取截图数据，并显示“翻译中...”的 Loading 状态。
+5. **结果展示：** 弹出一个无边框悬浮窗，展示翻译结果。
+
+### 2.2 核心功能列表
+
+| 模块 | 功能点 | 详细描述 | 优先级 |
+| --- | --- | --- | --- |
+| **交互** | 全局快捷键 | 注册系统级快捷键唤起截图流程。 | P0 |
+| **截图** | 原生截图调用 | 借用 macOS (`screencapture`) 和 Windows (`SnippingTool`) 的能力。 | P0 |
+| **处理** | 百度 API 对接 | 调用“图片翻译”接口，处理签名与网络请求。 | P0 |
+| **展示** | 结果面板 | **MVP 方案：** 左侧原图，右侧译文（左右分栏）。<br>
+
+<br>**进阶方案：** 利用 API 返回的坐标，在原图上覆盖译文（Overlay）。 | P0 |
+| **设置** | 基础配置 | 填入 API Key/Secret（方便你分发给朋友测试）。 | P1 |
+
+---
+
+## 3. 技术架构方案
+
+### 3.1 技术栈选型
+
+* **框架：** **Electron** (推荐 v28+) - 完美契合 JS 全栈技能。
+* **语言：** TypeScript (强烈建议，类型安全对 API 对接很有帮助)。
+* **前端视图：** React 或 Vue 3 + TailwindCSS (快速写 UI)。
+* **状态管理：** Pinia / Zustand (管理 API Key 和翻译历史)。
+* **核心库：**
+* `axios`: 处理 HTTP 请求。
+* `clipboard`: Electron 原生模块，处理图片数据。
+* `globalShortcut`: 监听快捷键。
+
+
+
+### 3.2 逻辑架构图
+
+### 3.3 关键数据流 (Data Flow)
+
+1. **Capture:** System Command  `Buffer` (内存中)
+2. **Process:** `Buffer`  `Base64` + `Salt` + `MD5`  `FormData`
+3. **Network:** `POST https://fanyi-api.baidu.com/.../picture`
+4. **Render:** `JSON Response`  React Components
+
+---
+
+## 4. 核心功能实现细节
+
+### 4.1 截图策略 (最省力的写法)
+
+不要自己写 `Canvas` 遮罩！利用 `exec` 调用系统命令：
+
+* **macOS:**
+```javascript
+// 使用交互式截图，保存到临时路径
+const { exec } = require('child_process');
+exec('screencapture -i /tmp/screenshot_temp.png', (err) => {
+    if (!err) {
+        // 读取文件 -> 调用 API
+    }
+});
+
+```
+
+
+* **Windows:**
+Windows 10/11 自带 `SnippingTool.exe`，但命令行调用较弱。
+* *替代方案：* 使用 `node-screencapture` 或直接调用 `powershell` 命令将截图存入剪贴板，然后 Electron 读取 `clipboard.readImage()`。
+
+
+
+### 4.2 百度图片翻译 API 对接
+
+* **API 地址：** `https://fanyi-api.baidu.com/api/trans/sdk/picture`
+* **关键参数：**
+* `image`: 图片的 Base64 字符串（不带 `data:image/png;base64,` 前缀）。
+* `from`: `auto`
+* `to`: `zh` (或 `en`)
+* `sign`: `MD5(appid + md5(file_content) + salt + cues + secret)` **注意：这里的签名算法比普通文本翻译复杂，必须严格按照文档拼接。**
+
+
+
+### 4.3 结果渲染 (MVP 推荐)
+
+既然百度返回了 `pasteImg` (合成后的图片) 和 `content` (结构化数据)。
+
+* **最快实现：** 百度 API 有一个参数 `cuid` 和 `paste`。如果你在请求时设置 `paste=1`，百度会直接返回一张**已经贴好译文的图片 Base64**！
+* **极简方案：**
+1. 请求时带上 `paste=1`。
+2. 拿到返回的 `data.pasteImg` (Base64)。
+3. 前端直接 `<img src="data:image/jpg;base64,..." />` 展示。
+*这简直就是为你量身定做的功能！无需前端计算坐标，甚至无需处理文字排版。*
+
+
+
+---
+
+## 5. 项目文件结构 (建议)
+
+```text
+LiteTrans/
+├── package.json
+├── electron/
+│   ├── main.ts          # 主进程：快捷键、系统调用、API 请求核心
+│   └── preload.ts       # 桥接：暴露 API 方法给渲染层
+├── src/                 # 渲染进程 (React/Vue)
+│   ├── App.vue          # 结果展示窗口
+│   ├── components/
+│   │   ├── Loading.vue  # 转圈动画
+│   │   └── Result.vue   # 展示 Base64 图片
+│   └── utils/
+│       └── baiduApi.ts  # 签名算法与 Axios 封装
+└── dist/
+
+```
+
+---
+
+## 6. 开发路线图 (Roadmap)
+
+### Phase 1: 验证核心 (预计工时：4小时)
+
+1. 写一个 Node.js 脚本，本地读取一张图片，跑通百度 API 的签名和请求，确保能拿到返回结果。
+2. 确认 `paste=1` 参数返回的图片效果是否满意。
+
+### Phase 2: 框架搭建 (预计工时：6小时)
+
+1. 初始化 Electron + Vue/React 项目。
+2. 实现 `Alt+Q` 唤起系统截图。
+3. 实现截图后读取 Buffer 并发送请求。
+
+### Phase 3: 界面与打包 (预计工时：4小时)
+
+1. 美化结果展示窗口（支持拖拽移动、按 `Esc` 关闭）。
+2. 处理 Windows/Mac 的打包配置 (`electron-builder`)。
+
+---
+
+## 7. 风险评估与对策
+
+| 风险点 | 影响 | 对策 |
+| --- | --- | --- |
+| **API 成本** | 百度图片翻译非免费，可能有额度限制。 | 开发阶段使用个人免费额度，上线前需关注百度充值规则。 |
+| **网络延迟** | 图片上传慢，导致用户以为软件卡死。 | 必须在 UI 上加明显的 Loading 动画（如“正在分析像素...”）。 |
+| **系统权限** | Mac 上无法截图或监听快捷键。 | 在 `package.json` 的 `build` 字段中配置好权限描述，首次启动引导用户授权。 |
+
+---
+
+## 下一步建议
+
+**我已经为你准备好了“Phase 1”的核心代码**（即：Node.js 计算百度图片翻译 API 签名的完整逻辑），因为这一步最容易因为 MD5 拼接错误而卡壳。
+
+**你现在需要我贴出这段核心代码吗？**
