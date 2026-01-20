@@ -111,3 +111,54 @@ SELECT public.get_user_quota();
 npm run electron:compile
 npm run electron:dev
 ```
+
+---
+
+## 翻译功能相关
+
+### 问题 4: 翻译请求卡住或 AbortError
+
+**错误信息:**
+```
+AbortError signal is aborted without reason
+```
+或请求卡在 `getting session...` 无响应。
+
+**原因:**
+1. **IPC 监听器重复注册**: `preload.ts` 中 `ipcRenderer.on()` 每次调用都添加新监听器，导致同一截图事件触发多次
+2. **并发 Session 请求冲突**: `supabase.auth.getSession()` 多次并发调用会互相取消
+
+**解决方案:**
+
+1. **preload.ts - 注册前清理旧监听器**
+```typescript
+onScreenshotCaptured: (callback) => {
+  ipcRenderer.removeAllListeners('screenshot-captured')
+  ipcRenderer.on('screenshot-captured', (_event, base64) => callback(base64))
+}
+```
+
+2. **supabase.ts - 使用传入的 accessToken**
+```typescript
+export async function translateImageViaEdge(
+  base64Image: string,
+  accessToken: string,  // 直接传入，不再内部调用 getSession
+  fromLang = 'auto',
+  toLang = 'zh'
+)
+```
+
+3. **App.tsx - 用 ref 缓存 session 避免闭包问题**
+```typescript
+const sessionRef = useRef(session)
+sessionRef.current = session
+
+// 回调中使用 ref 获取最新值
+const currentSession = sessionRef.current
+await translateImageViaEdge(base64Image, currentSession.access_token)
+```
+
+**经验教训:**
+- Electron IPC 监听器必须在注册前清理
+- 避免在高频回调中调用 `supabase.auth.getSession()`，应复用已缓存的 session
+- React useEffect 闭包捕获旧值，需用 ref 保持最新引用

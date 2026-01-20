@@ -1,28 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-interface AppConfig {
-  appid: string
-  secret: string
-  fromLang: string
-  toLang: string
-}
-
-interface LangOption {
-  code: string
-  name: string
-}
-
 contextBridge.exposeInMainWorld('electronAPI', {
-  onCaptureStart: (callback: () => void) => {
-    ipcRenderer.on('capture-start', callback)
+  onScreenshotCaptured: (callback: (base64: string) => void) => {
+    ipcRenderer.removeAllListeners('screenshot-captured')
+    ipcRenderer.on('screenshot-captured', (_event, base64) => callback(base64))
   },
   onTranslateStart: (callback: () => void) => {
+    ipcRenderer.removeAllListeners('translate-start')
     ipcRenderer.on('translate-start', callback)
   },
   onTranslateResult: (callback: (result: { image: string; sumSrc?: string; sumDst?: string }) => void) => {
+    ipcRenderer.removeAllListeners('translate-result')
     ipcRenderer.on('translate-result', (_event, result) => callback(result))
   },
   onTranslateError: (callback: (error: string) => void) => {
+    ipcRenderer.removeAllListeners('translate-error')
     ipcRenderer.on('translate-error', (_event, error) => callback(error))
   },
   captureScreen: () => {
@@ -34,19 +26,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => {
     ipcRenderer.send('close-window')
   },
-  getConfig: (): Promise<AppConfig> => {
-    return ipcRenderer.invoke('get-config')
-  },
-  saveConfig: (config: Partial<AppConfig>): Promise<AppConfig> => {
-    return ipcRenderer.invoke('save-config', config)
-  },
-  getSupportedLangs: (): Promise<LangOption[]> => {
-    return ipcRenderer.invoke('get-supported-langs')
-  },
   openExternal: (url: string) => {
     ipcRenderer.send('open-external', url)
   },
   onOAuthCallback: (callback: (url: string) => void) => {
+    ipcRenderer.removeAllListeners('oauth-callback')
     ipcRenderer.on('oauth-callback', (_event, url) => callback(url))
   },
 })

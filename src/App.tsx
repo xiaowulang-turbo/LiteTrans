@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './hooks/useAuth'
-import { checkAndUseQuota } from './lib/supabase'
+import { checkAndUseQuota, translateImageViaEdge } from './lib/supabase'
 
 type AppStatus = 'idle' | 'loading' | 'success' | 'error'
 type ViewMode = 'main' | 'login' | 'profile'
@@ -14,13 +14,13 @@ interface TranslateResult {
 declare global {
   interface Window {
     electronAPI: {
+      onScreenshotCaptured: (callback: (base64: string) => void) => void
       onTranslateStart: (callback: () => void) => void
       onTranslateResult: (callback: (result: TranslateResult) => void) => void
       onTranslateError: (callback: (error: string) => void) => void
       captureScreen: () => void
       copyImage: (base64: string) => void
       closeWindow: () => void
-      openSettings: () => void
       openExternal: (url: string) => void
       onOAuthCallback: (callback: (url: string) => void) => void
     }
@@ -28,7 +28,10 @@ declare global {
 }
 
 function App() {
-  const { user, loading: authLoading, quota, signInWithOAuth, signOut, refreshQuota } = useAuth()
+  const { user, session, loading: authLoading, quota, signInWithOAuth, signOut, refreshQuota } = useAuth()
+  const sessionRef = useRef(session)
+  sessionRef.current = session
+  
   const [view, setView] = useState<ViewMode>('main')
   const [status, setStatus] = useState<AppStatus>('idle')
   const [result, setResult] = useState<TranslateResult | null>(null)
@@ -50,16 +53,39 @@ function App() {
   useEffect(() => {
     if (!window.electronAPI) return
 
-    window.electronAPI.onTranslateStart(() => {
+    window.electronAPI.onScreenshotCaptured(async (base64Image) => {
+      console.log('[onScreenshotCaptured] received image, length:', base64Image?.length)
       setStatus('loading')
       setResult(null)
       setError('')
-    })
 
-    window.electronAPI.onTranslateResult((data) => {
-      setStatus('success')
-      setResult(data)
-      refreshQuota()
+      const currentSession = sessionRef.current
+      if (!currentSession?.access_token) {
+        setStatus('error')
+        setError('用户未登录')
+        return
+      }
+
+      try {
+        console.log('[onScreenshotCaptured] calling translateImageViaEdge...')
+        const translateResult = await translateImageViaEdge(base64Image, currentSession.access_token)
+        console.log('[onScreenshotCaptured] result:', translateResult)
+        if (translateResult.error_code === '0' && translateResult.data) {
+          setStatus('success')
+          setResult({
+            image: translateResult.data.pasteImg || '',
+            sumSrc: translateResult.data.sumSrc,
+            sumDst: translateResult.data.sumDst,
+          })
+          refreshQuota()
+        } else {
+          setStatus('error')
+          setError(translateResult.error_msg || '翻译失败')
+        }
+      } catch (err) {
+        setStatus('error')
+        setError((err as Error).message || '翻译失败')
+      }
     })
 
     window.electronAPI.onTranslateError((err) => {
@@ -74,7 +100,7 @@ function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [refreshQuota])
 
   const handleCopy = () => {
     if (result?.image) {
@@ -85,17 +111,21 @@ function App() {
   }
 
   const handleCapture = async () => {
+    console.log('[handleCapture] user:', !!user)
     if (!user) {
       setView('login')
       return
     }
+    console.log('[handleCapture] checking quota...')
     const quotaResult = await checkAndUseQuota()
+    console.log('[handleCapture] quotaResult:', quotaResult)
     if (!quotaResult.success) {
       setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
       setStatus('error')
       refreshQuota()
       return
     }
+    console.log('[handleCapture] calling captureScreen')
     window.electronAPI.captureScreen()
   }
 

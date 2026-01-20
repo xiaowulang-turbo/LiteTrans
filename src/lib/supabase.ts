@@ -82,3 +82,75 @@ export async function getTranslationHistory(limit = 20, offset = 0) {
   if (error) throw error
   return data as TranslationRecord[]
 }
+
+export interface TranslateImageResult {
+  error_code: string
+  error_msg: string
+  data?: {
+    from: string
+    to: string
+    sumSrc: string
+    sumDst: string
+    pasteImg?: string
+  }
+}
+
+export async function translateImageViaEdge(
+  base64Image: string,
+  accessToken: string,
+  fromLang = 'auto',
+  toLang = 'zh'
+): Promise<TranslateImageResult> {
+  console.log('[translateImageViaEdge] start, image length:', base64Image?.length)
+  
+  try {
+    console.log('[translateImageViaEdge] converting base64 to blob...')
+    const binaryStr = atob(base64Image)
+    const bytes = new Uint8Array(binaryStr.length)
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i)
+    }
+    const blob = new Blob([bytes], { type: 'image/png' })
+    console.log('[translateImageViaEdge] blob size:', blob.size)
+
+    const formData = new FormData()
+    formData.append('image', blob, 'screenshot.png')
+    formData.append('from', fromLang)
+    formData.append('to', toLang)
+
+    const url = `${supabaseUrl}/functions/v1/translate-image`
+    console.log('[translateImageViaEdge] sending request to:', url)
+    
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+      signal: controller.signal,
+    })
+    
+    clearTimeout(timeoutId)
+    console.log('[translateImageViaEdge] response status:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.log('[translateImageViaEdge] error:', errorText)
+      return { error_code: '-1', error_msg: errorText || '请求失败' }
+    }
+
+    const result = await response.json()
+    console.log('[translateImageViaEdge] result:', result)
+    return result
+  } catch (err: unknown) {
+    const error = err as Error
+    console.log('[translateImageViaEdge] error:', error.name, error.message)
+    if (error.name === 'AbortError') {
+      return { error_code: '-1', error_msg: '请求超时' }
+    }
+    return { error_code: '-1', error_msg: error.message || '网络请求失败' }
+  }
+}

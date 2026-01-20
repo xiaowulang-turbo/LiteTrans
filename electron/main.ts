@@ -13,12 +13,11 @@ import path from 'path'
 import { exec } from 'child_process'
 import fs from 'fs'
 import os from 'os'
-import { translateImage } from './baidu-api'
-import { loadConfig, saveConfig, isConfigValid, SUPPORTED_LANGS, AppConfig } from './config'
+
+const isDev = !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
-let currentConfig: AppConfig
 
 const TEMP_SCREENSHOT_PATH = path.join(os.tmpdir(), 'litetrans_screenshot.png')
 const PROTOCOL_NAME = 'litetrans'
@@ -50,13 +49,13 @@ function createWindow() {
     resizable: true,
     skipTaskbar: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
 
-  if (process.env.NODE_ENV === 'development') {
+  if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
@@ -102,33 +101,13 @@ async function captureScreen() {
       return
     }
 
-    mainWindow?.webContents.send('translate-start')
     mainWindow?.show()
 
     try {
       const imageBuffer = fs.readFileSync(TEMP_SCREENSHOT_PATH)
       fs.unlinkSync(TEMP_SCREENSHOT_PATH)
-
-      if (!isConfigValid(currentConfig)) {
-        mainWindow?.webContents.send('translate-error', '请先在设置中配置百度 API 凭证')
-        return
-      }
-
-      const result = await translateImage(
-        imageBuffer,
-        { appid: currentConfig.appid, secret: currentConfig.secret },
-        { from: currentConfig.fromLang, to: currentConfig.toLang }
-      )
-
-      if (result.error_code === '0' && result.data) {
-        mainWindow?.webContents.send('translate-result', {
-          image: result.data.pasteImg,
-          sumSrc: result.data.sumSrc,
-          sumDst: result.data.sumDst,
-        })
-      } else {
-        mainWindow?.webContents.send('translate-error', result.error_msg || '翻译失败')
-      }
+      const base64Image = imageBuffer.toString('base64')
+      mainWindow?.webContents.send('screenshot-captured', base64Image)
     } catch (err) {
       const error = err as Error
       mainWindow?.webContents.send('translate-error', error.message)
@@ -145,19 +124,6 @@ ipcMain.on('copy-image', (_event, base64: string) => {
 
 ipcMain.on('close-window', () => {
   mainWindow?.hide()
-})
-
-ipcMain.handle('get-config', () => {
-  return currentConfig
-})
-
-ipcMain.handle('save-config', (_event, config: Partial<AppConfig>) => {
-  currentConfig = saveConfig(config)
-  return currentConfig
-})
-
-ipcMain.handle('get-supported-langs', () => {
-  return SUPPORTED_LANGS
 })
 
 ipcMain.on('open-external', (_event, url: string) => {
@@ -180,7 +146,6 @@ if (!gotTheLock) {
 }
 
 app.whenReady().then(() => {
-  currentConfig = loadConfig()
   createWindow()
   createTray()
   registerShortcuts()

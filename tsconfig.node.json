@@ -6,12 +6,8 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "outDir": "dist/electron",
-    "rootDir": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "baseUrl": "."
+    "resolveJsonModule": true,
+    "esModuleInterop": true
   },
-  "include": ["vite.config.ts", "electron/**/*", "scripts/**/*"]
+  "include": ["electron.vite.config.ts", "electron/**/*", "scripts/**/*"]
 }
