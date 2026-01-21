@@ -1,41 +1,19 @@
+// @ts-ignore - Deno ESM imports
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// @ts-ignore
+import md5 from 'https://esm.sh/md5@2.3.0'
+
+declare const Deno: {
+  env: { get(key: string): string | undefined }
+}
 
 const BAIDU_API_URL = 'https://fanyi-api.baidu.com/api/trans/sdk/picture'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-function md5(data: Uint8Array | string): string {
-  const encoder = new TextEncoder()
-  const bytes = typeof data === 'string' ? encoder.encode(data) : data
-  const hashBuffer = new Uint8Array(16)
-  
-  // Deno 内置 crypto
-  const hash = new Uint8Array(
-    // @ts-ignore Deno crypto
-    Deno.core.ops.op_crypto_hash('MD5', bytes)
-  )
-  return Array.from(hash).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-async function md5Async(data: Uint8Array | string): Promise<string> {
-  const encoder = new TextEncoder()
-  const bytes = typeof data === 'string' ? encoder.encode(data) : data
-  const hashBuffer = await crypto.subtle.digest('MD5', bytes).catch(() => null)
-  
-  if (!hashBuffer) {
-    // Fallback: 使用简单实现
-    const { default: md5Lib } = await import('https://esm.sh/md5@2.3.0')
-    if (typeof data === 'string') return md5Lib(data)
-    return md5Lib(Array.from(data))
-  }
-  
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
 }
 
 serve(async (req) => {
@@ -100,10 +78,9 @@ serve(async (req) => {
     const cuid = 'APICUID'
     const mac = 'mac'
 
-    const { default: md5Fn } = await import('https://esm.sh/md5@2.3.0')
-    const imageMd5 = md5Fn(Array.from(imageBuffer))
+    const imageMd5 = md5(Array.from(imageBuffer))
     const signStr = appid + imageMd5 + salt + cuid + mac + secret
-    const sign = md5Fn(signStr)
+    const sign = md5(signStr)
 
     // 构建请求到百度 API
     const baiduForm = new FormData()
