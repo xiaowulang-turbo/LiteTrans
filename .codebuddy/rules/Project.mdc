@@ -8,7 +8,7 @@ provider:
 
 # LiteTrans - 截图即译桌面应用
 
-基于 **Electron + 百度图片翻译 API + Supabase** 的跨平台桌面工具。
+基于 **Electron + Supabase Edge Function + 百度图片翻译 API** 的跨平台桌面工具。
 
 ---
 
@@ -26,11 +26,11 @@ provider:
 
 | 层 | 技术 |
 |---|------|
-| 框架 | Electron v28+ |
+| 框架 | Electron v28+ (electron-vite 构建) |
 | 语言 | TypeScript |
 | 前端 | React + TailwindCSS |
-| 后端 | Supabase (Auth + PostgreSQL) |
-| API | 百度图片翻译 |
+| 后端 | Supabase (Auth + PostgreSQL + Edge Functions) |
+| API | 百度图片翻译 (通过 Edge Function 代理) |
 
 ### 2.2 系统架构
 
@@ -38,25 +38,63 @@ provider:
 ┌─────────────────────────────────────────────────────────┐
 │                    渲染进程 (React)                      │
 │  src/App.tsx                                            │
-│  ├── 登录视图 (OAuth: GitHub/Google)                    │
+│  ├── 登录视图 (OAuth: GitHub)                           │
 │  ├── 主视图 (配额显示 + 翻译结果)                        │
-│  └── 设置视图 (语言切换)                                │
+│  └── 个人中心 (用户信息 + 配额)                          │
 └────────────────────────┬────────────────────────────────┘
-                         │ IPC
+                         │ IPC (preload.ts)
 ┌────────────────────────▼────────────────────────────────┐
 │                    主进程 (Electron)                     │
 │  electron/main.ts                                       │
 │  ├── 全局快捷键 (Alt+Q)                                 │
-│  ├── 系统截图 (screencapture / SnippingTool)           │
-│  └── 百度 API 调用                                      │
+│  ├── 系统截图 (screencapture)                           │
+│  ├── 系统托盘                                           │
+│  └── OAuth 回调处理 (litetrans:// 协议)                 │
 └─────────────────────────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────┐
 │                    Supabase 后端                         │
-│  ├── Auth: 用户认证 (OAuth)                             │
-│  ├── user_profiles: 用户配额                            │
-│  └── translation_history: 翻译记录                      │
+│  ├── Auth: 用户认证 (OAuth GitHub)                      │
+│  ├── Edge Function: translate-image (代理百度 API)      │
+│  ├── user_profiles: 用户配额管理                        │
+│  └── RPC: check_and_use_quota / get_user_quota          │
 └─────────────────────────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│                    百度图片翻译 API                       │
+│  https://fanyi-api.baidu.com/api/trans/sdk/picture      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 2.3 翻译流程
+
+```
+用户截图 (Alt+Q)
+    │
+    ▼
+主进程调用 screencapture
+    │
+    ▼
+截图完成 → IPC 发送 base64 图片 → 渲染进程
+    │
+    ▼
+检查配额 (RPC: check_and_use_quota)
+    │
+    ├─ 无配额 → 显示错误
+    │
+    └─ 有配额 → 调用 Edge Function
+                    │
+                    ▼
+              Edge Function 验证用户身份
+                    │
+                    ▼
+              调用百度图片翻译 API
+                    │
+                    ▼
+              返回翻译后的图片 (base64)
+                    │
+                    ▼
+              渲染进程显示结果
 ```
 
 ---
@@ -75,17 +113,6 @@ provider:
 | last_used_date | DATE | 最后使用日期 |
 | expire_at | TIMESTAMPTZ | 套餐过期时间 |
 
-**translation_history** (翻译记录)
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | UUID | 主键 |
-| user_id | UUID | 用户 ID |
-| source_lang | TEXT | 源语言 |
-| target_lang | TEXT | 目标语言 |
-| image_size | INTEGER | 图片大小 |
-| status | TEXT | success/failed |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
 ### 3.2 数据库函数
 
 | 函数 | 说明 |
@@ -94,10 +121,12 @@ provider:
 | `get_user_quota()` | 获取当前配额信息 |
 | `handle_new_user()` | 新用户自动创建 profile（触发器） |
 
-### 3.3 RLS 策略
+### 3.3 Edge Function
 
-- 用户只能查看/更新自己的数据
-- 翻译记录只能查看/插入自己的
+**translate-image** - 图片翻译代理
+- 路径: `supabase/functions/translate-image/index.ts`
+- 功能: 验证用户身份 → 调用百度 API → 返回翻译结果
+- Secrets: `BAIDU_APPID`, `BAIDU_SECRET`
 
 ---
 
@@ -106,85 +135,82 @@ provider:
 ```
 LiteTrans/
 ├── electron/
-│   ├── main.ts           # 主进程
-│   ├── preload.ts        # IPC 桥接
-│   ├── baidu-api.ts      # 百度翻译 API
-│   └── config.ts         # 配置管理
+│   ├── main.ts           # 主进程: 窗口/快捷键/托盘/OAuth
+│   └── preload.ts        # IPC 桥接 (removeAllListeners 防重复)
 ├── src/
-│   ├── App.tsx           # 主界面
-│   ├── lib/
-│   │   └── supabase.ts   # Supabase 客户端
-│   └── hooks/
-│       └── useAuth.ts    # 认证 Hook
-├── .env                  # 环境变量
+│   ├── App.tsx           # 主界面: 登录/主视图/个人中心
+│   ├── main.tsx          # React 入口
+│   ├── index.html        # HTML 模板
+│   ├── index.css         # TailwindCSS
+│   ├── hooks/
+│   │   └── useAuth.ts    # 认证 Hook (session/quota 管理)
+│   └── lib/
+│       └── supabase.ts   # Supabase 客户端 + API 封装
+├── supabase/
+│   └── functions/
+│       └── translate-image/
+│           └── index.ts  # Edge Function: 百度 API 代理
+├── docs/
+│   ├── TROUBLESHOOTING.md      # 问题排查指南
+│   └── electron-vite-migration.md
+├── .env                  # 环境变量 (Supabase)
+├── electron.vite.config.ts
+├── tailwind.config.js
+├── tsconfig.json
 └── package.json
 ```
 
 ---
 
-## 5. Supabase 集成方案
+## 5. 核心模块说明
 
-### 5.1 已完成
+### 5.1 electron/preload.ts
 
-- [x] 数据库表: `user_profiles`, `translation_history`
-- [x] 数据库函数: `check_and_use_quota()`, `get_user_quota()`
-- [x] 触发器: 新用户自动创建 profile
-- [x] RLS 策略配置
-- [x] 前端 SDK: `src/lib/supabase.ts`
-- [x] 认证 Hook: `src/hooks/useAuth.ts`
-- [x] 依赖安装: `@supabase/supabase-js`
+IPC 桥接，暴露给渲染进程的 API：
+- `onScreenshotCaptured` - 接收截图结果
+- `captureScreen` - 触发截图
+- `copyImage` - 复制图片到剪贴板
+- `closeWindow` - 隐藏窗口
+- `onOAuthCallback` - OAuth 回调
 
-### 5.2 待实现
+**关键**: 每个监听器注册前先 `removeAllListeners` 防止重复注册。
 
-| 步骤 | 内容 | 改动量 |
-|------|------|--------|
-| 1 | 修复 `useAuth.ts` 依赖问题 | ~10 行 |
-| 2 | 重构 `App.tsx` 集成认证 | ~100 行 |
-| 3 | 主进程集成配额检查 | ~30 行 |
+### 5.2 src/hooks/useAuth.ts
 
-### 5.3 实现细节
+认证状态管理：
+- `user` / `session` - 当前登录状态
+- `quota` - 配额信息
+- `signInWithOAuth` - OAuth 登录
+- `signOut` - 登出
+- `refreshQuota` - 刷新配额
 
-#### Step 1: 修复 useAuth Hook
+**关键**: 使用 `useRef` 缓存 user，避免 `refreshQuota` 依赖循环。
 
-```typescript
-// 问题: refreshQuota 依赖 state.user 导致无限循环
-// 方案: 使用 useRef 保存 user
-const userRef = useRef<User | null>(null)
-userRef.current = state.user
+### 5.3 src/lib/supabase.ts
 
-const refreshQuota = useCallback(async () => {
-  if (!userRef.current) return
-  const quota = await getUserQuota()
-  setState(prev => ({ ...prev, quota }))
-}, []) // 无依赖
-```
+Supabase 客户端封装：
+- `supabase` - 单例客户端
+- `translateImageViaEdge(base64, accessToken)` - 调用翻译 Edge Function
+- `checkAndUseQuota()` / `getUserQuota()` - 配额 RPC
 
-#### Step 2: App.tsx 重构
+**关键**: `translateImageViaEdge` 接收 `accessToken` 参数，避免内部调用 `getSession()` 导致 AbortError。
 
-```
-App
-├── 未登录 → 显示 OAuth 登录按钮
-└── 已登录
-    ├── QuotaBar: 显示剩余配额 (X/20)
-    ├── ResultPanel: 翻译结果
-    └── 配额耗尽 → 禁用翻译，显示提示
-```
+### 5.4 src/App.tsx
 
-#### Step 3: 翻译流程
-
-```
-截图 → 检查配额 → 有配额 → 调用百度 API → 扣减配额 → 返回结果
-                → 无配额 → 返回错误
-```
+主界面组件：
+- 使用 `sessionRef` 缓存 session，解决 useEffect 闭包问题
+- 三个视图: `login` / `main` / `profile`
+- 毛玻璃 UI 风格
 
 ---
 
 ## 6. 约束条件
 
 - **必须联网**: 不支持离线使用
-- **UI 风格**: 保持现有毛玻璃风格
-- **登录方式**: OAuth (GitHub/Google)
+- **UI 风格**: 毛玻璃 (backdrop-blur)
+- **登录方式**: OAuth (GitHub)
 - **配额限制**: 免费用户每日 20 次
+- **平台**: macOS (screencapture)
 
 ---
 
@@ -193,4 +219,28 @@ App
 ```env
 VITE_SUPABASE_URL=https://xxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJxxx...
+```
+
+Edge Function Secrets (通过 `npx supabase secrets set` 配置):
+```
+BAIDU_APPID=xxx
+BAIDU_SECRET=xxx
+```
+
+---
+
+## 8. 开发命令
+
+```bash
+# 开发模式
+npm run dev
+
+# 构建
+npm run build
+
+# 部署 Edge Function
+npx supabase functions deploy translate-image --no-verify-jwt
+
+# 查看 Edge Function 日志
+npx supabase functions logs translate-image
 ```
