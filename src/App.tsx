@@ -28,7 +28,7 @@ declare global {
 }
 
 function App() {
-  const { user, session, loading: authLoading, quota, signInWithOAuth, signOut, refreshQuota } = useAuth()
+  const { user, session, loading: authLoading, quota, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, refreshQuota } = useAuth()
   const sessionRef = useRef(session)
   sessionRef.current = session
   
@@ -38,6 +38,10 @@ function App() {
   const [error, setError] = useState<string>('')
   const [copied, setCopied] = useState(false)
   const [authError, setAuthError] = useState('')
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [authSubmitting, setAuthSubmitting] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -139,6 +143,30 @@ function App() {
     if (error) setAuthError(error.message)
   }
 
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || !password) {
+      setAuthError('请填写邮箱和密码')
+      return
+    }
+    setAuthError('')
+    setAuthSubmitting(true)
+    
+    const { error } = authMode === 'login' 
+      ? await signInWithEmail(email, password)
+      : await signUpWithEmail(email, password)
+    
+    setAuthSubmitting(false)
+    if (error) {
+      setAuthError(error.message)
+    } else if (authMode === 'register') {
+      setAuthError('')
+      setAuthMode('login')
+      setPassword('')
+      alert('注册成功，请查收验证邮件后登录')
+    }
+  }
+
   const handleLogout = async () => {
     await signOut()
     setView('login')
@@ -174,19 +202,56 @@ function App() {
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
-          <h2 className="text-white text-lg font-medium">登录以使用翻译服务</h2>
+          <h2 className="text-white text-lg font-medium">
+            {authMode === 'login' ? '登录' : '注册'}以使用翻译服务
+          </h2>
           <p className="text-white/50 text-xs text-center">免费用户每日 20 次翻译配额</p>
 
           {authError && <p className="text-red-400 text-xs">{authError}</p>}
 
-          <div className="flex flex-col gap-3 w-full max-w-[200px]">
+          <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3 w-full max-w-[220px]">
+            <input
+              type="email"
+              placeholder="邮箱"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full py-2 px-3 rounded-lg bg-white/10 text-white text-sm placeholder-white/40 outline-none focus:ring-1 focus:ring-white/30"
+            />
+            <input
+              type="password"
+              placeholder="密码"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full py-2 px-3 rounded-lg bg-white/10 text-white text-sm placeholder-white/40 outline-none focus:ring-1 focus:ring-white/30"
+            />
             <button
-              onClick={() => handleOAuthLogin('github')}
-              className="w-full py-2 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+              type="submit"
+              disabled={authSubmitting}
+              className="w-full py-2 px-4 rounded-full bg-blue-500/80 hover:bg-blue-500 disabled:bg-white/10 disabled:text-white/40 text-white text-sm transition-colors"
             >
-              GitHub 登录
+              {authSubmitting ? '处理中...' : (authMode === 'login' ? '登录' : '注册')}
             </button>
+          </form>
+
+          <button
+            onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError('') }}
+            className="text-white/50 hover:text-white/70 text-xs"
+          >
+            {authMode === 'login' ? '没有账号？注册' : '已有账号？登录'}
+          </button>
+
+          <div className="flex items-center gap-3 w-full max-w-[220px]">
+            <div className="flex-1 h-px bg-white/20" />
+            <span className="text-white/40 text-xs">或</span>
+            <div className="flex-1 h-px bg-white/20" />
           </div>
+
+          <button
+            onClick={() => handleOAuthLogin('github')}
+            className="w-full max-w-[220px] py-2 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+          >
+            GitHub 登录
+          </button>
         </div>
       </div>
     )
