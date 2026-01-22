@@ -500,7 +500,7 @@ function App() {
 
   if (view === 'history') {
     return (
-      <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
+      <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
         <div
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
