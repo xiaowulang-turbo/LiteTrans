@@ -198,7 +198,18 @@ function App() {
         return
       }
 
-      // 已登录，直接翻译（使用 ref 获取最新 targetLang）
+      // 检查并扣减配额
+      console.log('[onScreenshotCaptured] checking quota...')
+      const quotaResult = await checkAndUseQuota()
+      console.log('[onScreenshotCaptured] quotaResult:', quotaResult)
+      if (!quotaResult.success) {
+        setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
+        setStatus('error')
+        refreshQuota()
+        return
+      }
+
+      // 已登录且有配额，翻译（使用 ref 获取最新 targetLang）
       await translateImage(base64Image, currentSession.access_token, targetLangRef.current)
     })
 
@@ -230,15 +241,7 @@ function App() {
       setView('login')
       return
     }
-    console.log('[handleCapture] checking quota...')
-    const quotaResult = await checkAndUseQuota()
-    console.log('[handleCapture] quotaResult:', quotaResult)
-    if (!quotaResult.success) {
-      setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
-      setStatus('error')
-      refreshQuota()
-      return
-    }
+    // 配额检查统一在 onScreenshotCaptured 中进行
     console.log('[handleCapture] calling captureScreen')
     window.electronAPI.captureScreen()
   }
