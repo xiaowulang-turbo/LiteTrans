@@ -2,13 +2,15 @@
 description: 
 alwaysApply: true
 enabled: true
-updatedAt: 2026-01-20T04:11:50.924Z
+updatedAt: 2026-01-22T00:00:00.000Z
 provider: 
 ---
 
 # LiteTrans - 截图即译桌面应用
 
-基于 **Electron + Supabase Edge Function + 百度图片翻译 API** 的跨平台桌面工具。
+基于 **Electron + Supabase Edge Function + 百度图片翻译 API** 的 macOS 桌面工具。
+
+**当前状态**: 核心功能完成 (85%)，可通过 `npm run dev` 本地使用。
 
 ---
 
@@ -38,23 +40,24 @@ provider:
 ┌─────────────────────────────────────────────────────────┐
 │                    渲染进程 (React)                      │
 │  src/App.tsx                                            │
-│  ├── 登录视图 (OAuth: GitHub)                           │
+│  ├── 登录视图 (邮箱/密码 + OAuth GitHub)                │
 │  ├── 主视图 (配额显示 + 翻译结果)                        │
-│  └── 个人中心 (用户信息 + 配额)                          │
+│  └── 个人中心 (用户信息 + 配额 + 登出)                   │
 └────────────────────────┬────────────────────────────────┘
                          │ IPC (preload.ts)
 ┌────────────────────────▼────────────────────────────────┐
 │                    主进程 (Electron)                     │
 │  electron/main.ts                                       │
 │  ├── 全局快捷键 (Alt+Q)                                 │
-│  ├── 系统截图 (screencapture)                           │
-│  ├── 系统托盘                                           │
+│  ├── 系统截图 (screencapture -i)                        │
+│  ├── 系统托盘 (无图标)                                  │
+│  ├── 复制图片到剪贴板 (nativeImage)                     │
 │  └── OAuth 回调处理 (litetrans:// 协议)                 │
 └─────────────────────────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────┐
 │                    Supabase 后端                         │
-│  ├── Auth: 用户认证 (OAuth GitHub)                      │
+│  ├── Auth: 用户认证 (邮箱 + OAuth GitHub)               │
 │  ├── Edge Function: translate-image (代理百度 API)      │
 │  ├── user_profiles: 用户配额管理                        │
 │  └── RPC: check_and_use_quota / get_user_quota          │
@@ -69,32 +72,29 @@ provider:
 ### 2.3 翻译流程
 
 ```
-用户截图 (Alt+Q)
-    │
-    ▼
-主进程调用 screencapture
-    │
-    ▼
-截图完成 → IPC 发送 base64 图片 → 渲染进程
+用户截图 (Alt+Q 或点击"重新截图")
     │
     ▼
 检查配额 (RPC: check_and_use_quota)
     │
-    ├─ 无配额 → 显示错误
+    ├─ 无配额 → 显示"配额已用完"
     │
-    └─ 有配额 → 调用 Edge Function
+    └─ 有配额 → 主进程调用 screencapture -i
                     │
                     ▼
-              Edge Function 验证用户身份
+              截图完成 → IPC 发送 base64 图片
                     │
                     ▼
-              调用百度图片翻译 API
+              调用 Edge Function (携带 accessToken)
+                    │
+                    ▼
+              Edge Function 验证身份 → 调用百度 API
                     │
                     ▼
               返回翻译后的图片 (base64)
                     │
                     ▼
-              渲染进程显示结果
+              渲染进程显示结果 + 刷新配额
 ```
 
 ---
@@ -108,16 +108,25 @@ provider:
 |------|------|------|
 | id | UUID | 主键，关联 auth.users |
 | plan | TEXT | 套餐: free/pro/enterprise |
-| daily_limit | INTEGER | 每日配额上限 |
+| daily_limit | INTEGER | 每日配额上限 (free=20) |
 | daily_used | INTEGER | 今日已用次数 |
-| last_used_date | DATE | 最后使用日期 |
+| last_used_date | DATE | 最后使用日期 (用于每日重置) |
 | expire_at | TIMESTAMPTZ | 套餐过期时间 |
+
+**translation_history** (翻译历史，UI 待实现)
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | UUID | 主键 |
+| user_id | UUID | 关联 auth.users |
+| source_lang | TEXT | 源语言 |
+| target_lang | TEXT | 目标语言 |
+| status | TEXT | success/failed |
 
 ### 3.2 数据库函数
 
 | 函数 | 说明 |
 |------|------|
-| `check_and_use_quota()` | 检查并扣减配额（原子操作） |
+| `check_and_use_quota()` | 检查并扣减配额（原子操作，跨日自动重置） |
 | `get_user_quota()` | 获取当前配额信息 |
 | `handle_new_user()` | 新用户自动创建 profile（触发器） |
 
@@ -135,28 +144,34 @@ provider:
 ```
 LiteTrans/
 ├── electron/
-│   ├── main.ts           # 主进程: 窗口/快捷键/托盘/OAuth
-│   └── preload.ts        # IPC 桥接 (removeAllListeners 防重复)
+│   ├── main.ts              # 主进程: 窗口/快捷键/托盘/OAuth/截图
+│   └── preload.ts           # IPC 桥接 (contextBridge)
 ├── src/
-│   ├── App.tsx           # 主界面: 登录/主视图/个人中心
-│   ├── main.tsx          # React 入口
-│   ├── index.html        # HTML 模板
-│   ├── index.css         # TailwindCSS
+│   ├── App.tsx              # 主界面: login/main/profile 三视图
+│   ├── main.tsx             # React 入口
+│   ├── index.html           # HTML 模板
+│   ├── index.css            # TailwindCSS 入口
+│   ├── vite-env.d.ts        # Vite 类型声明
 │   ├── hooks/
-│   │   └── useAuth.ts    # 认证 Hook (session/quota 管理)
+│   │   └── useAuth.ts       # 认证 Hook (session/quota/OAuth)
 │   └── lib/
-│       └── supabase.ts   # Supabase 客户端 + API 封装
+│       └── supabase.ts      # Supabase 客户端 + API 封装
 ├── supabase/
 │   └── functions/
 │       └── translate-image/
-│           └── index.ts  # Edge Function: 百度 API 代理
+│           ├── index.ts     # Edge Function: 百度 API 代理
+│           └── README.md    # Edge Function 文档
+├── scripts/
+│   └── test-api.ts          # API 测试脚本
 ├── docs/
-│   ├── TROUBLESHOOTING.md      # 问题排查指南
+│   ├── ROADMAP.md           # 开发计划
+│   ├── TROUBLESHOOTING.md   # 问题排查指南
 │   └── electron-vite-migration.md
-├── .env                  # 环境变量 (Supabase)
-├── electron.vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
+├── .env                     # 环境变量 (Supabase URL/Key)
+├── electron.vite.config.ts  # electron-vite 配置
+├── tailwind.config.js       # TailwindCSS 配置
+├── tsconfig.json            # TypeScript 配置
+├── tsconfig.node.json       # Node.js TypeScript 配置
 └── package.json
 ```
 
@@ -164,57 +179,113 @@ LiteTrans/
 
 ## 5. 核心模块说明
 
-### 5.1 electron/preload.ts
+### 5.1 electron/main.ts
 
-IPC 桥接，暴露给渲染进程的 API：
-- `onScreenshotCaptured` - 接收截图结果
-- `captureScreen` - 触发截图
-- `copyImage` - 复制图片到剪贴板
-- `closeWindow` - 隐藏窗口
-- `onOAuthCallback` - OAuth 回调
+主进程核心功能：
+- `createWindow()` - 创建无边框透明窗口 (400x500)
+- `globalShortcut.register('Alt+Q')` - 全局快捷键
+- `execFile('screencapture', ['-i', tmpPath])` - macOS 截图
+- `app.setAsDefaultProtocolClient('litetrans')` - OAuth 回调协议
+- `Tray` - 系统托盘 (暂无图标)
+- `nativeImage` + `clipboard` - 复制图片到剪贴板
+
+### 5.2 electron/preload.ts
+
+IPC 桥接 API (contextBridge.exposeInMainWorld)：
+- `onScreenshotCaptured(callback)` - 接收截图 base64
+- `onTranslateError(callback)` - 接收错误信息
+- `captureScreen()` - 触发截图
+- `copyImage(base64)` - 复制图片到剪贴板
+- `closeWindow()` - 隐藏窗口
+- `openExternal(url)` - 打开外部链接 (OAuth)
+- `onOAuthCallback(callback)` - OAuth 回调
 
 **关键**: 每个监听器注册前先 `removeAllListeners` 防止重复注册。
 
-### 5.2 src/hooks/useAuth.ts
+### 5.3 src/hooks/useAuth.ts
 
-认证状态管理：
-- `user` / `session` - 当前登录状态
-- `quota` - 配额信息
-- `signInWithOAuth` - OAuth 登录
-- `signOut` - 登出
-- `refreshQuota` - 刷新配额
+认证状态管理 Hook：
+- `user` / `session` / `loading` / `quota` - 状态
+- `signInWithEmail(email, password)` - 邮箱登录
+- `signUpWithEmail(email, password)` - 邮箱注册
+- `signInWithOAuth('github')` - GitHub OAuth
+- `signOut()` - 登出 (清除 localStorage)
+- `refreshQuota()` - 刷新配额
 
-**关键**: 使用 `useRef` 缓存 user，避免 `refreshQuota` 依赖循环。
+**关键**: 
+- 使用 `useRef` 缓存 user，避免 `refreshQuota` 依赖循环
+- OAuth 回调通过 `setTimeout` 延迟获取 quota，避免 onAuthStateChange 死锁
 
-### 5.3 src/lib/supabase.ts
+### 5.4 src/lib/supabase.ts
 
 Supabase 客户端封装：
 - `supabase` - 单例客户端
-- `translateImageViaEdge(base64, accessToken)` - 调用翻译 Edge Function
-- `checkAndUseQuota()` / `getUserQuota()` - 配额 RPC
+- `translateImageViaEdge(base64, accessToken, from, to)` - 翻译 API
+- `checkAndUseQuota()` - 检查并扣减配额
+- `getUserQuota()` - 获取配额信息
+- `saveTranslation()` / `getTranslationHistory()` - 历史记录 (UI 待实现)
 
-**关键**: `translateImageViaEdge` 接收 `accessToken` 参数，避免内部调用 `getSession()` 导致 AbortError。
+**关键**: `translateImageViaEdge` 接收 `accessToken` 参数，避免内部调用 `getSession()`。
 
-### 5.4 src/App.tsx
+### 5.5 src/App.tsx
 
-主界面组件：
-- 使用 `sessionRef` 缓存 session，解决 useEffect 闭包问题
-- 三个视图: `login` / `main` / `profile`
-- 毛玻璃 UI 风格
+主界面组件 (约 460 行)：
+- **视图切换**: `login` / `main` / `profile`
+- **登录视图**: 邮箱密码表单 + GitHub OAuth
+- **主视图**: 状态指示 + 配额显示 + 翻译结果 + 操作栏
+- **个人中心**: 头像 + 用户信息 + 配额 + 登出
+- **毛玻璃 UI**: `bg-glass-bg backdrop-blur-glass`
+- **待翻译缓存**: `pendingImage` 状态，未登录时缓存截图
 
 ---
 
-## 6. 约束条件
+## 6. 已实现功能
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 全局快捷键截图 | ✅ | Alt+Q |
+| 百度图片翻译 | ✅ | Edge Function 代理 |
+| 邮箱登录/注册 | ✅ | Supabase Auth |
+| GitHub OAuth | ✅ | litetrans:// 协议回调 |
+| 用户配额管理 | ✅ | 每日 20 次，跨日重置 |
+| 配额实时显示 | ✅ | 右上角 remaining/limit |
+| 复制翻译结果 | ✅ | 复制到系统剪贴板 |
+| 系统托盘 | ⚠️ | 已创建但无图标 |
+| 窗口置顶/无边框 | ✅ | alwaysOnTop + frameless |
+| ESC 关闭窗口 | ✅ | 隐藏到托盘 |
+| 毛玻璃 UI | ✅ | backdrop-blur |
+| 个人中心 | ✅ | 用户信息 + 配额 + 登出 |
+| 未登录截图缓存 | ✅ | 登录后自动翻译 |
+
+---
+
+## 7. 待实现功能
+
+详见 `docs/ROADMAP.md`
+
+| 优先级 | 功能 | 说明 |
+|--------|------|------|
+| P0 | 应用图标 | icon.icns + 托盘图标 |
+| P0 | macOS 签名公证 | 否则 Gatekeeper 拦截 |
+| P1 | 翻译失败重试 | 添加重试按钮 |
+| P1 | 语言选择 | 当前固定 auto→zh |
+| P1 | 开机自启 | app.setLoginItemSettings |
+| P2 | 历史记录 UI | 数据库已有表 |
+| P2 | 自动更新 | electron-updater |
+
+---
+
+## 8. 约束条件
 
 - **必须联网**: 不支持离线使用
+- **平台**: 仅 macOS (依赖 screencapture)
 - **UI 风格**: 毛玻璃 (backdrop-blur)
-- **登录方式**: OAuth (GitHub)
+- **登录方式**: 邮箱 + GitHub OAuth
 - **配额限制**: 免费用户每日 20 次
-- **平台**: macOS (screencapture)
 
 ---
 
-## 7. 环境变量
+## 9. 环境变量
 
 ```env
 VITE_SUPABASE_URL=https://xxx.supabase.co
@@ -229,7 +300,7 @@ BAIDU_SECRET=xxx
 
 ---
 
-## 8. 开发命令
+## 10. 开发命令
 
 ```bash
 # 开发模式
@@ -237,6 +308,9 @@ npm run dev
 
 # 构建
 npm run build
+
+# 打包 macOS 应用
+npm run electron:build
 
 # 部署 Edge Function
 npx supabase functions deploy translate-image --no-verify-jwt
