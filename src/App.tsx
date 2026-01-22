@@ -150,6 +150,7 @@ function App() {
       console.log('[onScreenshotCaptured] received image, length:', base64Image?.length)
       setResult(null)
       setError('')
+      setView('main') // 自动跳转到主视图
 
       // 直接从 Supabase 获取最新 session
       const { data: { session: currentSession } } = await supabase.auth.getSession()
