@@ -39,4 +39,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAutoLaunch: (enabled: boolean): Promise<boolean> => {
     return ipcRenderer.invoke('set-auto-launch', enabled)
   },
+  getShortcut: (): Promise<string> => {
+    return ipcRenderer.invoke('get-shortcut')
+  },
+  setShortcut: (shortcut: string): Promise<{ success: boolean; shortcut: string }> => {
+    return ipcRenderer.invoke('set-shortcut', shortcut)
+  },
+  getPresetShortcuts: (): Promise<string[]> => {
+    return ipcRenderer.invoke('get-preset-shortcuts')
+  },
 })

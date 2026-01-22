@@ -25,6 +25,9 @@ declare global {
       onOAuthCallback: (callback: (url: string) => void) => void
       getAutoLaunch: () => Promise<boolean>
       setAutoLaunch: (enabled: boolean) => Promise<boolean>
+      getShortcut: () => Promise<string>
+      setShortcut: (shortcut: string) => Promise<{ success: boolean; shortcut: string }>
+      getPresetShortcuts: () => Promise<string[]>
     }
   }
 }
@@ -50,6 +53,8 @@ function App() {
   const [lastImage, setLastImage] = useState<string | null>(null)
   const [targetLang, setTargetLang] = useState<'zh' | 'en' | 'jp' | 'kor'>('zh')
   const [autoLaunch, setAutoLaunch] = useState(false)
+  const [shortcut, setShortcut] = useState('Alt+Q')
+  const [presetShortcuts, setPresetShortcuts] = useState<string[]>([])
   const targetLangRef = useRef(targetLang)
 
   useEffect(() => {
@@ -69,11 +74,18 @@ function App() {
 
   useEffect(() => {
     window.electronAPI?.getAutoLaunch?.().then(setAutoLaunch).catch(() => {})
+    window.electronAPI?.getShortcut?.().then(setShortcut).catch(() => {})
+    window.electronAPI?.getPresetShortcuts?.().then(setPresetShortcuts).catch(() => {})
   }, [])
 
   const handleToggleAutoLaunch = async () => {
     const newValue = await window.electronAPI.setAutoLaunch(!autoLaunch)
     setAutoLaunch(newValue)
+  }
+
+  const handleChangeShortcut = async (newShortcut: string) => {
+    const result = await window.electronAPI.setShortcut(newShortcut)
+    setShortcut(result.shortcut)
   }
 
   const handleGoToHistory = async () => {
@@ -429,6 +441,18 @@ function App() {
               </>
             )}
             <div className="flex justify-between items-center text-white/60 pt-2 border-t border-white/10">
+              <span>截图快捷键</span>
+              <select
+                value={shortcut}
+                onChange={(e) => handleChangeShortcut(e.target.value)}
+                className="text-xs bg-white/10 text-white/80 rounded px-2 py-1 outline-none cursor-pointer hover:bg-white/20"
+              >
+                {presetShortcuts.map((s) => (
+                  <option key={s} value={s}>{s.replace('CommandOrControl', 'Ctrl')}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-between items-center text-white/60">
               <span>目标语言</span>
               <select
                 value={targetLang}
@@ -670,7 +694,7 @@ function App() {
       <div className="px-4 py-2 border-b border-glass-border flex items-center justify-between">
         <div>
           {status === 'idle' && (
-            <span className="text-white/60 text-xs">按 Alt+Q 截图翻译</span>
+            <span className="text-white/60 text-xs">按 {shortcut.replace('CommandOrControl', 'Ctrl')} 截图翻译</span>
           )}
           {status === 'loading' && (
             <span className="text-blue-400 text-xs flex items-center gap-2">

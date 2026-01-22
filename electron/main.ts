@@ -18,8 +18,36 @@ const isDev = !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let currentShortcut: string = 'Alt+Q'
 
 const TEMP_SCREENSHOT_PATH = path.join(os.tmpdir(), 'litetrans_screenshot.png')
+
+const PRESET_SHORTCUTS = ['Alt+Q', 'Alt+T', 'Alt+S', 'CommandOrControl+Shift+T', 'CommandOrControl+Shift+S']
+
+function getConfigPath(): string {
+  return path.join(app.getPath('userData'), 'config.json')
+}
+
+function loadConfig(): { shortcut: string } {
+  try {
+    const configPath = getConfigPath()
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      return { shortcut: data.shortcut || 'Alt+Q' }
+    }
+  } catch (e) {
+    console.error('[loadConfig] error:', e)
+  }
+  return { shortcut: 'Alt+Q' }
+}
+
+function saveConfig(config: { shortcut: string }) {
+  try {
+    fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2))
+  } catch (e) {
+    console.error('[saveConfig] error:', e)
+  }
+}
 const PROTOCOL_NAME = 'litetrans'
 
 if (process.defaultApp) {
@@ -89,7 +117,36 @@ function createTray() {
 }
 
 function registerShortcuts() {
-  globalShortcut.register('Alt+Q', captureScreen)
+  const config = loadConfig()
+  currentShortcut = config.shortcut
+  
+  if (!globalShortcut.register(currentShortcut, captureScreen)) {
+    console.error('[registerShortcuts] failed to register:', currentShortcut)
+    if (currentShortcut !== 'Alt+Q') {
+      currentShortcut = 'Alt+Q'
+      globalShortcut.register(currentShortcut, captureScreen)
+    }
+  }
+  console.log('[registerShortcuts] registered:', currentShortcut)
+}
+
+function updateShortcut(newShortcut: string): { success: boolean; shortcut: string } {
+  if (!PRESET_SHORTCUTS.includes(newShortcut)) {
+    return { success: false, shortcut: currentShortcut }
+  }
+  
+  globalShortcut.unregister(currentShortcut)
+  
+  if (globalShortcut.register(newShortcut, captureScreen)) {
+    currentShortcut = newShortcut
+    saveConfig({ shortcut: newShortcut })
+    console.log('[updateShortcut] updated to:', newShortcut)
+    return { success: true, shortcut: newShortcut }
+  }
+  
+  globalShortcut.register(currentShortcut, captureScreen)
+  console.error('[updateShortcut] failed to register:', newShortcut)
+  return { success: false, shortcut: currentShortcut }
 }
 
 async function captureScreen() {
@@ -142,6 +199,18 @@ ipcMain.handle('get-auto-launch', () => {
 ipcMain.handle('set-auto-launch', (_event, enabled: boolean) => {
   app.setLoginItemSettings({ openAtLogin: enabled })
   return app.getLoginItemSettings().openAtLogin
+})
+
+ipcMain.handle('get-shortcut', () => {
+  return currentShortcut
+})
+
+ipcMain.handle('set-shortcut', (_event, shortcut: string) => {
+  return updateShortcut(shortcut)
+})
+
+ipcMain.handle('get-preset-shortcuts', () => {
+  return PRESET_SHORTCUTS
 })
 
 app.on('open-url', (_event, url) => {
