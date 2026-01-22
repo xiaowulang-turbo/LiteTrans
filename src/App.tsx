@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
-import { checkAndUseQuota, translateImageViaEdge, supabase } from './lib/supabase'
+import { checkAndUseQuota, translateImageViaEdge, supabase, saveTranslation, getTranslationHistory, TranslationRecord } from './lib/supabase'
 
 type AppStatus = 'idle' | 'loading' | 'success' | 'error'
-type ViewMode = 'main' | 'login' | 'profile'
+type ViewMode = 'main' | 'login' | 'profile' | 'history' | 'historyDetail'
 
 interface TranslateResult {
   image: string
@@ -41,6 +41,9 @@ function App() {
   const [password, setPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [pendingImage, setPendingImage] = useState<string | null>(null)
+  const [history, setHistory] = useState<TranslationRecord[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [selectedRecord, setSelectedRecord] = useState<TranslationRecord | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -52,6 +55,18 @@ function App() {
 
   const handleGoToProfile = () => setView('profile')
   const handleBackToMain = () => setView('main')
+  const handleGoToHistory = async () => {
+    setView('history')
+    setHistoryLoading(true)
+    try {
+      const records = await getTranslationHistory(20, 0)
+      setHistory(records)
+    } catch (err) {
+      console.error('Failed to load history:', err)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   // 翻译图片的核心函数
   const translateImage = async (base64Image: string, accessToken: string) => {
@@ -71,6 +86,28 @@ function App() {
           sumDst: translateResult.data.sumDst,
         })
         refreshQuota()
+        // 保存历史记录 - 直接从 session 获取 userId，避免闭包问题
+        const { data: { session: currentSession } } = await supabase.auth.getSession()
+        const userId = currentSession?.user?.id
+        if (userId) {
+          console.log('[translateImage] saving history for user:', userId)
+          saveTranslation({
+            user_id: userId,
+            source_text: translateResult.data.sumSrc || null,
+            translated_text: translateResult.data.sumDst || null,
+            source_lang: 'auto',
+            target_lang: 'zh',
+            status: 'success',
+            image_size: base64Image.length,
+            error_message: null,
+          }).then(() => {
+            console.log('[translateImage] history saved successfully')
+          }).catch((err) => {
+            console.error('[translateImage] failed to save history:', err)
+          })
+        } else {
+          console.log('[translateImage] skipping history save, no userId from session')
+        }
       } else {
         setStatus('error')
         setError(translateResult.error_msg || '翻译失败')
@@ -357,6 +394,12 @@ function App() {
                 </div>
               </>
             )}
+            <button
+              onClick={handleGoToHistory}
+              className="w-full py-2 mt-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
+            >
+              翻译历史 →
+            </button>
           </div>
         </div>
 
@@ -367,6 +410,153 @@ function App() {
           >
             退出登录
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (view === 'history') {
+    return (
+      <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
+        <div
+          className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          <button
+            onClick={() => setView('profile')}
+            className="text-white/60 hover:text-white/80 text-xs"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            ← 返回
+          </button>
+          <span className="text-white/80 text-sm font-medium">翻译历史</span>
+          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <button
+              onClick={handleClose}
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {historyLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <span className="text-white/60 text-sm flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+                加载中...
+              </span>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <span className="text-white/40 text-sm">暂无翻译记录</span>
+            </div>
+          ) : (
+            <div className="p-3 space-y-2">
+              {history.map((record) => (
+                <div
+                  key={record.id}
+                  onClick={() => { setSelectedRecord(record); setView('historyDetail') }}
+                  className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-white/40 text-xs">
+                      {new Date(record.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className={`text-xs ${record.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                      {record.status === 'success' ? '成功' : '失败'}
+                    </span>
+                  </div>
+                  {record.source_text && (
+                    <p className="text-white/60 text-xs truncate">{record.source_text}</p>
+                  )}
+                  {record.translated_text && (
+                    <p className="text-white/80 text-sm truncate mt-1">{record.translated_text}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (view === 'historyDetail' && selectedRecord) {
+    const copyText = (text: string) => {
+      navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+
+    return (
+      <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
+        <div
+          className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          <button
+            onClick={() => setView('history')}
+            className="text-white/60 hover:text-white/80 text-xs"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            ← 返回
+          </button>
+          <span className="text-white/80 text-sm font-medium">翻译详情</span>
+          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <button
+              onClick={handleClose}
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-white/40">
+              {new Date(selectedRecord.created_at).toLocaleString('zh-CN')}
+            </span>
+            <span className={selectedRecord.status === 'success' ? 'text-green-400' : 'text-red-400'}>
+              {selectedRecord.status === 'success' ? '翻译成功' : '翻译失败'}
+            </span>
+          </div>
+
+          {selectedRecord.source_text && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-white/50 text-xs">原文</span>
+                <button
+                  onClick={() => copyText(selectedRecord.source_text!)}
+                  className="text-white/40 hover:text-white/60 text-xs"
+                >
+                  复制
+                </button>
+              </div>
+              <p className="text-white/70 text-sm leading-relaxed bg-white/5 rounded-lg p-3">
+                {selectedRecord.source_text}
+              </p>
+            </div>
+          )}
+
+          {selectedRecord.translated_text && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-white/50 text-xs">译文</span>
+                <button
+                  onClick={() => copyText(selectedRecord.translated_text!)}
+                  className="text-white/40 hover:text-white/60 text-xs"
+                >
+                  {copied ? '已复制 ✓' : '复制'}
+                </button>
+              </div>
+              <p className="text-white/90 text-sm leading-relaxed bg-white/5 rounded-lg p-3">
+                {selectedRecord.translated_text}
+              </p>
+            </div>
+          )}
+
+          <div className="text-white/30 text-xs pt-2">
+            {selectedRecord.source_lang} → {selectedRecord.target_lang}
+          </div>
         </div>
       </div>
     )
