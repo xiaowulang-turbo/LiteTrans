@@ -429,6 +429,19 @@ function App() {
               </>
             )}
             <div className="flex justify-between items-center text-white/60 pt-2 border-t border-white/10">
+              <span>目标语言</span>
+              <select
+                value={targetLang}
+                onChange={(e) => setTargetLang(e.target.value as typeof targetLang)}
+                className="text-xs bg-white/10 text-white/80 rounded px-2 py-1 outline-none cursor-pointer hover:bg-white/20"
+              >
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="jp">日本語</option>
+                <option value="kor">한국어</option>
+              </select>
+            </div>
+            <div className="flex justify-between items-center text-white/60">
               <span>开机自启</span>
               <button
                 onClick={handleToggleAutoLaunch}
@@ -655,41 +668,29 @@ function App() {
 
       {/* 状态指示 */}
       <div className="px-4 py-2 border-b border-glass-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            {status === 'idle' && (
-              <span className="text-white/60 text-xs">按 Alt+Q 截图翻译</span>
-            )}
-            {status === 'loading' && (
-              <span className="text-blue-400 text-xs flex items-center gap-2">
-                <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                翻译中...
-              </span>
-            )}
-            {status === 'success' && (
-              <span className="text-green-400 text-xs">✓ 翻译完成</span>
-            )}
-            {status === 'error' && (
-              <span className="text-red-400 text-xs flex items-center gap-2">
-                ✗ {error}
-                {lastImage && session?.access_token && (
-                  <button onClick={handleRetry} className="text-blue-400 hover:text-blue-300 underline">
-                    重试
-                  </button>
-                )}
-              </span>
-            )}
-          </div>
-          <select
-            value={targetLang}
-            onChange={(e) => setTargetLang(e.target.value as typeof targetLang)}
-            className="text-xs bg-white/10 text-white/70 rounded px-1.5 py-0.5 outline-none cursor-pointer hover:bg-white/20"
-          >
-            <option value="zh">→ 中文</option>
-            <option value="en">→ English</option>
-            <option value="jp">→ 日本語</option>
-            <option value="kor">→ 한국어</option>
-          </select>
+        <div>
+          {status === 'idle' && (
+            <span className="text-white/60 text-xs">按 Alt+Q 截图翻译</span>
+          )}
+          {status === 'loading' && (
+            <span className="text-blue-400 text-xs flex items-center gap-2">
+              <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+              翻译中...
+            </span>
+          )}
+          {status === 'success' && (
+            <span className="text-green-400 text-xs">✓ 翻译完成</span>
+          )}
+          {status === 'error' && (
+            <span className="text-red-400 text-xs flex items-center gap-2">
+              ✗ {error}
+              {lastImage && session?.access_token && (
+                <button onClick={handleRetry} className="text-blue-400 hover:text-blue-300 underline">
+                  重试
+                </button>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {quota?.success && (
