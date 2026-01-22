@@ -71,9 +71,11 @@ function createWindow() {
 }
 
 function createTray() {
-  // 使用简单的图标占位，实际可替换为真实图标
-  const icon = nativeImage.createEmpty()
-  tray = new Tray(icon)
+  const trayIconPath = isDev
+    ? path.join(app.getAppPath(), 'build/trayIcon.png')
+    : path.join(process.resourcesPath, 'trayIcon.png')
+  const icon = nativeImage.createFromPath(trayIconPath)
+  tray = new Tray(icon.resize({ width: 16, height: 16 }))
   tray.setToolTip('LiteTrans - 截图即译')
 
   const contextMenu = Menu.buildFromTemplate([
