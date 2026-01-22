@@ -135,6 +135,15 @@ ipcMain.on('open-external', (_event, url: string) => {
   shell.openExternal(url)
 })
 
+ipcMain.handle('get-auto-launch', () => {
+  return app.getLoginItemSettings().openAtLogin
+})
+
+ipcMain.handle('set-auto-launch', (_event, enabled: boolean) => {
+  app.setLoginItemSettings({ openAtLogin: enabled })
+  return app.getLoginItemSettings().openAtLogin
+})
+
 app.on('open-url', (_event, url) => {
   handleOAuthCallback(url)
 })

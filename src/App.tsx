@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { checkAndUseQuota, translateImageViaEdge, supabase, saveTranslation, getTranslationHistory, TranslationRecord, uploadTranslationImage, getTranslationImageUrl } from './lib/supabase'
 
@@ -23,6 +23,8 @@ declare global {
       closeWindow: () => void
       openExternal: (url: string) => void
       onOAuthCallback: (callback: (url: string) => void) => void
+      getAutoLaunch: () => Promise<boolean>
+      setAutoLaunch: (enabled: boolean) => Promise<boolean>
     }
   }
 }
@@ -45,6 +47,14 @@ function App() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<TranslationRecord | null>(null)
   const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
+  const [lastImage, setLastImage] = useState<string | null>(null)
+  const [targetLang, setTargetLang] = useState<'zh' | 'en' | 'jp' | 'kor'>('zh')
+  const [autoLaunch, setAutoLaunch] = useState(false)
+  const targetLangRef = useRef(targetLang)
+
+  useEffect(() => {
+    targetLangRef.current = targetLang
+  }, [targetLang])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -56,6 +66,16 @@ function App() {
 
   const handleGoToProfile = () => setView('profile')
   const handleBackToMain = () => setView('main')
+
+  useEffect(() => {
+    window.electronAPI?.getAutoLaunch?.().then(setAutoLaunch).catch(() => {})
+  }, [])
+
+  const handleToggleAutoLaunch = async () => {
+    const newValue = await window.electronAPI.setAutoLaunch(!autoLaunch)
+    setAutoLaunch(newValue)
+  }
+
   const handleGoToHistory = async () => {
     setView('history')
     setHistoryLoading(true)
@@ -70,14 +90,14 @@ function App() {
   }
 
   // 翻译图片的核心函数
-  const translateImage = async (base64Image: string, accessToken: string) => {
+  const translateImage = async (base64Image: string, accessToken: string, toLang: string = targetLang) => {
     setStatus('loading')
     setResult(null)
     setError('')
     
     try {
-      console.log('[translateImage] calling translateImageViaEdge...')
-      const translateResult = await translateImageViaEdge(base64Image, accessToken)
+      console.log('[translateImage] calling translateImageViaEdge, target:', toLang)
+      const translateResult = await translateImageViaEdge(base64Image, accessToken, 'auto', toLang)
       console.log('[translateImage] result:', translateResult)
       if (translateResult.error_code === '0' && translateResult.data) {
         setStatus('success')
@@ -100,7 +120,7 @@ function App() {
             source_text: translateResult.data.sumSrc || null,
             translated_text: translateResult.data.sumDst || null,
             source_lang: 'auto',
-            target_lang: 'zh',
+            target_lang: toLang,
             status: 'success',
             image_size: base64Image.length,
             image_path: imagePath,
@@ -139,7 +159,7 @@ function App() {
         refreshQuota()
         return
       }
-      translateImage(imageToProcess, session.access_token)
+      translateImage(imageToProcess, session.access_token, targetLangRef.current)
     })
   }, [session, pendingImage])
 
@@ -150,7 +170,8 @@ function App() {
       console.log('[onScreenshotCaptured] received image, length:', base64Image?.length)
       setResult(null)
       setError('')
-      setView('main') // 自动跳转到主视图
+      setView('main')
+      setLastImage(base64Image)
 
       // 直接从 Supabase 获取最新 session
       const { data: { session: currentSession } } = await supabase.auth.getSession()
@@ -165,8 +186,8 @@ function App() {
         return
       }
 
-      // 已登录，直接翻译
-      await translateImage(base64Image, currentSession.access_token)
+      // 已登录，直接翻译（使用 ref 获取最新 targetLang）
+      await translateImage(base64Image, currentSession.access_token, targetLangRef.current)
     })
 
     window.electronAPI.onTranslateError((err) => {
@@ -212,6 +233,13 @@ function App() {
 
   const handleClose = () => {
     window.electronAPI.closeWindow()
+  }
+
+  const handleRetry = async () => {
+    if (!lastImage || !session?.access_token) return
+    setStatus('loading')
+    setError('')
+    await translateImage(lastImage, session.access_token)
   }
 
   const handleOAuthLogin = async (provider: 'github' | 'google') => {
@@ -400,6 +428,15 @@ function App() {
                 </div>
               </>
             )}
+            <div className="flex justify-between items-center text-white/60 pt-2 border-t border-white/10">
+              <span>开机自启</span>
+              <button
+                onClick={handleToggleAutoLaunch}
+                className={`w-10 h-5 rounded-full transition-colors relative ${autoLaunch ? 'bg-blue-500' : 'bg-white/20'}`}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${autoLaunch ? 'left-5' : 'left-0.5'}`} />
+              </button>
+            </div>
             <button
               onClick={handleGoToHistory}
               className="w-full py-2 mt-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
@@ -618,22 +655,41 @@ function App() {
 
       {/* 状态指示 */}
       <div className="px-4 py-2 border-b border-glass-border flex items-center justify-between">
-        <div>
-          {status === 'idle' && (
-            <span className="text-white/60 text-xs">按 Alt+Q 截图翻译</span>
-          )}
-          {status === 'loading' && (
-            <span className="text-blue-400 text-xs flex items-center gap-2">
-              <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-              翻译中...
-            </span>
-          )}
-          {status === 'success' && (
-            <span className="text-green-400 text-xs">✓ 翻译完成</span>
-          )}
-          {status === 'error' && (
-            <span className="text-red-400 text-xs">✗ {error}</span>
-          )}
+        <div className="flex items-center gap-3">
+          <div>
+            {status === 'idle' && (
+              <span className="text-white/60 text-xs">按 Alt+Q 截图翻译</span>
+            )}
+            {status === 'loading' && (
+              <span className="text-blue-400 text-xs flex items-center gap-2">
+                <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                翻译中...
+              </span>
+            )}
+            {status === 'success' && (
+              <span className="text-green-400 text-xs">✓ 翻译完成</span>
+            )}
+            {status === 'error' && (
+              <span className="text-red-400 text-xs flex items-center gap-2">
+                ✗ {error}
+                {lastImage && session?.access_token && (
+                  <button onClick={handleRetry} className="text-blue-400 hover:text-blue-300 underline">
+                    重试
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
+          <select
+            value={targetLang}
+            onChange={(e) => setTargetLang(e.target.value as typeof targetLang)}
+            className="text-xs bg-white/10 text-white/70 rounded px-1.5 py-0.5 outline-none cursor-pointer hover:bg-white/20"
+          >
+            <option value="zh">→ 中文</option>
+            <option value="en">→ English</option>
+            <option value="jp">→ 日本語</option>
+            <option value="kor">→ 한국어</option>
+          </select>
         </div>
         <div className="flex items-center gap-2">
           {quota?.success && (

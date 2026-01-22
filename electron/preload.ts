@@ -33,4 +33,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('oauth-callback')
     ipcRenderer.on('oauth-callback', (_event, url) => callback(url))
   },
+  getAutoLaunch: (): Promise<boolean> => {
+    return ipcRenderer.invoke('get-auto-launch')
+  },
+  setAutoLaunch: (enabled: boolean): Promise<boolean> => {
+    return ipcRenderer.invoke('set-auto-launch', enabled)
+  },
 })
