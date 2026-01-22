@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
-import { checkAndUseQuota, translateImageViaEdge } from './lib/supabase'
+import { checkAndUseQuota, translateImageViaEdge, supabase } from './lib/supabase'
 
 type AppStatus = 'idle' | 'loading' | 'success' | 'error'
 type ViewMode = 'main' | 'login' | 'profile'
@@ -29,8 +29,6 @@ declare global {
 
 function App() {
   const { user, session, loading: authLoading, quota, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, refreshQuota } = useAuth()
-  const sessionRef = useRef(session)
-  sessionRef.current = session
   
   const [view, setView] = useState<ViewMode>('main')
   const [status, setStatus] = useState<AppStatus>('idle')
@@ -42,6 +40,7 @@ function App() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
+  const [pendingImage, setPendingImage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -54,42 +53,77 @@ function App() {
   const handleGoToProfile = () => setView('profile')
   const handleBackToMain = () => setView('main')
 
+  // 翻译图片的核心函数
+  const translateImage = async (base64Image: string, accessToken: string) => {
+    setStatus('loading')
+    setResult(null)
+    setError('')
+    
+    try {
+      console.log('[translateImage] calling translateImageViaEdge...')
+      const translateResult = await translateImageViaEdge(base64Image, accessToken)
+      console.log('[translateImage] result:', translateResult)
+      if (translateResult.error_code === '0' && translateResult.data) {
+        setStatus('success')
+        setResult({
+          image: translateResult.data.pasteImg || '',
+          sumSrc: translateResult.data.sumSrc,
+          sumDst: translateResult.data.sumDst,
+        })
+        refreshQuota()
+      } else {
+        setStatus('error')
+        setError(translateResult.error_msg || '翻译失败')
+      }
+    } catch (err) {
+      setStatus('error')
+      setError((err as Error).message || '翻译失败')
+    }
+  }
+
+  // 登录成功后，处理待翻译的图片
+  useEffect(() => {
+    if (!session?.access_token || !pendingImage) return
+    
+    console.log('[useEffect] processing pending image after login')
+    const imageToProcess = pendingImage
+    setPendingImage(null)
+    
+    // 先检查配额再翻译
+    checkAndUseQuota().then(quotaResult => {
+      if (!quotaResult.success) {
+        setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
+        setStatus('error')
+        refreshQuota()
+        return
+      }
+      translateImage(imageToProcess, session.access_token)
+    })
+  }, [session, pendingImage])
+
   useEffect(() => {
     if (!window.electronAPI) return
 
     window.electronAPI.onScreenshotCaptured(async (base64Image) => {
       console.log('[onScreenshotCaptured] received image, length:', base64Image?.length)
-      setStatus('loading')
       setResult(null)
       setError('')
 
-      const currentSession = sessionRef.current
+      // 直接从 Supabase 获取最新 session
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      console.log('[onScreenshotCaptured] current session:', !!currentSession)
+      
       if (!currentSession?.access_token) {
-        setStatus('error')
-        setError('用户未登录')
+        // 未登录时，缓存截图，等待登录后处理
+        console.log('[onScreenshotCaptured] not logged in, caching image')
+        setPendingImage(base64Image)
+        setStatus('idle')
+        setError('请先登录后再翻译')
         return
       }
 
-      try {
-        console.log('[onScreenshotCaptured] calling translateImageViaEdge...')
-        const translateResult = await translateImageViaEdge(base64Image, currentSession.access_token)
-        console.log('[onScreenshotCaptured] result:', translateResult)
-        if (translateResult.error_code === '0' && translateResult.data) {
-          setStatus('success')
-          setResult({
-            image: translateResult.data.pasteImg || '',
-            sumSrc: translateResult.data.sumSrc,
-            sumDst: translateResult.data.sumDst,
-          })
-          refreshQuota()
-        } else {
-          setStatus('error')
-          setError(translateResult.error_msg || '翻译失败')
-        }
-      } catch (err) {
-        setStatus('error')
-        setError((err as Error).message || '翻译失败')
-      }
+      // 已登录，直接翻译
+      await translateImage(base64Image, currentSession.access_token)
     })
 
     window.electronAPI.onTranslateError((err) => {
@@ -115,7 +149,7 @@ function App() {
   }
 
   const handleCapture = async () => {
-    console.log('[handleCapture] user:', !!user)
+    console.log('[handleCapture] user:', !!user, 'session:', !!session)
     if (!user) {
       setView('login')
       return
@@ -326,14 +360,14 @@ function App() {
           </div>
         </div>
 
-        {/* <div className="px-4 py-3 border-t border-glass-border">
+        <div className="px-4 py-3 border-t border-glass-border">
           <button
             onClick={handleLogout}
             className="w-full py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm transition-colors"
           >
             退出登录
           </button>
-        </div> */}
+        </div>
       </div>
     )
   }

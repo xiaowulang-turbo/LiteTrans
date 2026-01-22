@@ -54,7 +54,9 @@ export async function getUserQuota(): Promise<QuotaInfo> {
 }
 
 export async function checkAndUseQuota(): Promise<QuotaInfo> {
+  console.log('[checkAndUseQuota] calling RPC...')
   const { data, error } = await supabase.rpc('check_and_use_quota')
+  console.log('[checkAndUseQuota] result:', { data, error })
   if (error) {
     return { success: false, error: error.message }
   }

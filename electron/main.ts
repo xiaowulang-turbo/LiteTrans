@@ -31,8 +31,11 @@ if (process.defaultApp) {
 }
 
 function handleOAuthCallback(url: string) {
+  console.log('[handleOAuthCallback] received url:', url)
   const urlObj = new URL(url)
+  console.log('[handleOAuthCallback] protocol:', urlObj.protocol, 'host:', urlObj.host)
   if (urlObj.protocol === `${PROTOCOL_NAME}:` && urlObj.host === 'auth') {
+    console.log('[handleOAuthCallback] sending to renderer')
     mainWindow?.show()
     mainWindow?.webContents.send('oauth-callback', url)
   }
