@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
-import { checkAndUseQuota, translateImageViaEdge, supabase, saveTranslation, getTranslationHistory, TranslationRecord } from './lib/supabase'
+import { checkAndUseQuota, translateImageViaEdge, supabase, saveTranslation, getTranslationHistory, TranslationRecord, uploadTranslationImage, getTranslationImageUrl } from './lib/supabase'
 
 type AppStatus = 'idle' | 'loading' | 'success' | 'error'
 type ViewMode = 'main' | 'login' | 'profile' | 'history' | 'historyDetail'
@@ -44,6 +44,7 @@ function App() {
   const [history, setHistory] = useState<TranslationRecord[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<TranslationRecord | null>(null)
+  const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -89,8 +90,11 @@ function App() {
         // 保存历史记录 - 直接从 session 获取 userId，避免闭包问题
         const { data: { session: currentSession } } = await supabase.auth.getSession()
         const userId = currentSession?.user?.id
-        if (userId) {
-          console.log('[translateImage] saving history for user:', userId)
+        if (userId && translateResult.data.pasteImg) {
+          console.log('[translateImage] uploading image and saving history...')
+          // 先上传图片
+          const imagePath = await uploadTranslationImage(userId, translateResult.data.pasteImg)
+          // 保存记录
           saveTranslation({
             user_id: userId,
             source_text: translateResult.data.sumSrc || null,
@@ -99,14 +103,15 @@ function App() {
             target_lang: 'zh',
             status: 'success',
             image_size: base64Image.length,
+            image_path: imagePath,
             error_message: null,
           }).then(() => {
-            console.log('[translateImage] history saved successfully')
+            console.log('[translateImage] history saved, image_path:', imagePath)
           }).catch((err) => {
             console.error('[translateImage] failed to save history:', err)
           })
         } else {
-          console.log('[translateImage] skipping history save, no userId from session')
+          console.log('[translateImage] skipping history save, no userId or pasteImg')
         }
       } else {
         setStatus('error')
@@ -455,7 +460,15 @@ function App() {
               {history.map((record) => (
                 <div
                   key={record.id}
-                  onClick={() => { setSelectedRecord(record); setView('historyDetail') }}
+                  onClick={async () => {
+                    setSelectedRecord(record)
+                    setDetailImageUrl(null)
+                    setView('historyDetail')
+                    if (record.image_path) {
+                      const url = await getTranslationImageUrl(record.image_path)
+                      setDetailImageUrl(url)
+                    }
+                  }}
                   className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <div className="flex justify-between items-center mb-1">
@@ -519,6 +532,27 @@ function App() {
               {selectedRecord.status === 'success' ? '翻译成功' : '翻译失败'}
             </span>
           </div>
+
+          {/* 翻译结果图片 */}
+          {selectedRecord.image_path && (
+            <div className="space-y-2">
+              <span className="text-white/50 text-xs">翻译图片</span>
+              {detailImageUrl ? (
+                <img
+                  src={detailImageUrl}
+                  alt="翻译结果"
+                  className="w-full rounded-lg object-contain bg-white/5"
+                />
+              ) : (
+                <div className="h-32 rounded-lg bg-white/5 flex items-center justify-center">
+                  <span className="text-white/40 text-xs flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+                    加载图片...
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {selectedRecord.source_text && (
             <div className="space-y-2">

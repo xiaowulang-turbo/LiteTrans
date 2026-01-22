@@ -31,6 +31,7 @@ export interface TranslationRecord {
   source_text: string | null
   translated_text: string | null
   image_size: number | null
+  image_path: string | null
   status: 'success' | 'failed'
   error_message: string | null
   created_at: string
@@ -83,6 +84,44 @@ export async function getTranslationHistory(limit = 20, offset = 0) {
   
   if (error) throw error
   return data as TranslationRecord[]
+}
+
+// 上传翻译结果图片到 Storage
+export async function uploadTranslationImage(userId: string, base64Image: string): Promise<string | null> {
+  try {
+    const fileName = `${userId}/${Date.now()}.png`
+    const binaryStr = atob(base64Image)
+    const bytes = new Uint8Array(binaryStr.length)
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i)
+    }
+    
+    const { error } = await supabase.storage
+      .from('translation-images')
+      .upload(fileName, bytes, { contentType: 'image/png', upsert: false })
+    
+    if (error) {
+      console.error('[uploadTranslationImage] error:', error)
+      return null
+    }
+    return fileName
+  } catch (err) {
+    console.error('[uploadTranslationImage] error:', err)
+    return null
+  }
+}
+
+// 获取图片的签名 URL（有效期 1 小时）
+export async function getTranslationImageUrl(imagePath: string): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from('translation-images')
+    .createSignedUrl(imagePath, 3600)
+  
+  if (error) {
+    console.error('[getTranslationImageUrl] error:', error)
+    return null
+  }
+  return data.signedUrl
 }
 
 export interface TranslateImageResult {
