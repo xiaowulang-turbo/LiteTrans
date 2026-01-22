@@ -41,9 +41,11 @@ export interface QuotaInfo {
   success: boolean
   error?: string
   plan?: string
+  plan_display?: string
   daily_limit?: number
   daily_used?: number
   remaining?: number
+  expire_at?: string | null
 }
 
 export async function getUserQuota(): Promise<QuotaInfo> {

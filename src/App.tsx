@@ -433,7 +433,7 @@ function App() {
               <>
                 <div className="flex justify-between text-white/60">
                   <span>套餐类型</span>
-                  <span className="text-white/80 capitalize">{quota.plan || 'free'}</span>
+                  <span className="text-white/80">{quota.plan_display || quota.plan || '免费版'}</span>
                 </div>
                 <div className="flex justify-between text-white/60">
                   <span>今日配额</span>
@@ -441,6 +441,14 @@ function App() {
                     {quota.remaining}/{quota.daily_limit}
                   </span>
                 </div>
+                {quota.expire_at && (
+                  <div className="flex justify-between text-white/60">
+                    <span>到期时间</span>
+                    <span className={new Date(quota.expire_at) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) ? 'text-yellow-400' : 'text-white/80'}>
+                      {new Date(quota.expire_at).toLocaleDateString('zh-CN')}
+                    </span>
+                  </div>
+                )}
               </>
             )}
             <div className="flex justify-between items-center text-white/60 pt-2 border-t border-white/10">
