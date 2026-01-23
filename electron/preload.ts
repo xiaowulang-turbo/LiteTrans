@@ -83,4 +83,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openReleasesPage: () => {
     ipcRenderer.send('open-releases-page')
   },
+  // Windows 截图覆盖窗口通信
+  onScreenshotDataUrl: (callback: (dataUrl: string) => void) => {
+    ipcRenderer.removeAllListeners('screenshot-dataurl')
+    ipcRenderer.on('screenshot-dataurl', (_event, dataUrl) => callback(dataUrl))
+  },
+  sendCropResult: (rect: { x: number; y: number; width: number; height: number } | null) => {
+    ipcRenderer.send('crop-result', rect)
+  },
 })

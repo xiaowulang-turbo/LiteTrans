@@ -8,6 +8,8 @@ import {
   Tray,
   Menu,
   shell,
+  desktopCapturer,
+  screen,
 } from 'electron'
 import path from 'path'
 import { exec } from 'child_process'
@@ -75,6 +77,7 @@ async function checkForUpdates(): Promise<UpdateInfo> {
 
 let mainWindow: BrowserWindow | null = null
 let previewWindow: BrowserWindow | null = null
+let screenshotOverlayWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let currentShortcut: string = 'Alt+Q'
 
@@ -217,6 +220,16 @@ function updateShortcut(newShortcut: string): { success: boolean; shortcut: stri
 async function captureScreen() {
   mainWindow?.hide()
 
+  if (process.platform === 'win32') {
+    // Windows: 使用 desktopCapturer + 覆盖窗口
+    await captureScreenWindows()
+  } else {
+    // macOS: 使用系统 screencapture
+    captureScreenMacOS()
+  }
+}
+
+function captureScreenMacOS() {
   exec(`screencapture -i "${TEMP_SCREENSHOT_PATH}"`, async (error) => {
     if (error) {
       mainWindow?.webContents.send('translate-error', '截图失败')
@@ -241,6 +254,266 @@ async function captureScreen() {
     }
   })
 }
+
+async function captureScreenWindows() {
+  try {
+    // 获取主显示器
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { width, height } = primaryDisplay.size
+    const scaleFactor = primaryDisplay.scaleFactor
+
+    // 获取屏幕截图
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: Math.round(width * scaleFactor), height: Math.round(height * scaleFactor) }
+    })
+
+    if (sources.length === 0) {
+      mainWindow?.webContents.send('translate-error', '无法获取屏幕截图')
+      mainWindow?.show()
+      return
+    }
+
+    const screenSource = sources[0]
+    const screenshotDataUrl = screenSource.thumbnail.toDataURL()
+
+    // 创建全屏覆盖窗口用于区域选择
+    createScreenshotOverlay(screenshotDataUrl, width, height)
+  } catch (err) {
+    const error = err as Error
+    console.error('[captureScreenWindows] error:', error)
+    mainWindow?.webContents.send('translate-error', error.message)
+    mainWindow?.show()
+  }
+}
+
+function createScreenshotOverlay(screenshotDataUrl: string, width: number, height: number) {
+  if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+    screenshotOverlayWindow.close()
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { x, y } = primaryDisplay.bounds
+
+  screenshotOverlayWindow = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    frame: false,
+    transparent: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    fullscreen: true,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  const overlayHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+          width: 100%; height: 100%; 
+          overflow: hidden;
+          cursor: crosshair;
+        }
+        .container {
+          width: 100%; height: 100%;
+          position: relative;
+        }
+        #screenshot {
+          position: absolute;
+          top: 0; left: 0;
+          width: 100%; height: 100%;
+          object-fit: cover;
+        }
+        #overlay {
+          position: absolute;
+          top: 0; left: 0;
+          width: 100%; height: 100%;
+          background: rgba(0, 0, 0, 0.3);
+        }
+        #selection {
+          position: absolute;
+          border: 2px solid #3b82f6;
+          background: transparent;
+          display: none;
+          box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        }
+        .size-indicator {
+          position: absolute;
+          bottom: -25px;
+          left: 0;
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          padding: 2px 8px;
+          border-radius: 3px;
+          font-size: 12px;
+          font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+          white-space: nowrap;
+        }
+        .hint {
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <img id="screenshot" src="" alt="screenshot">
+        <div id="overlay"></div>
+        <div id="selection">
+          <span class="size-indicator" id="size-indicator"></span>
+        </div>
+      </div>
+      <div class="hint">拖拽选择区域，按 ESC 取消</div>
+      <script>
+        const screenshot = document.getElementById('screenshot');
+        const overlay = document.getElementById('overlay');
+        const selection = document.getElementById('selection');
+        const sizeIndicator = document.getElementById('size-indicator');
+        
+        let isSelecting = false;
+        let startX = 0, startY = 0;
+        let currentRect = null;
+
+        window.electronAPI?.onScreenshotDataUrl?.((dataUrl) => {
+          screenshot.src = dataUrl;
+          overlay.style.display = 'block';
+        });
+
+        document.addEventListener('mousedown', (e) => {
+          isSelecting = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          selection.style.left = startX + 'px';
+          selection.style.top = startY + 'px';
+          selection.style.width = '0';
+          selection.style.height = '0';
+          selection.style.display = 'block';
+          overlay.style.display = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!isSelecting) return;
+          
+          const currentX = e.clientX;
+          const currentY = e.clientY;
+          
+          const left = Math.min(startX, currentX);
+          const top = Math.min(startY, currentY);
+          const width = Math.abs(currentX - startX);
+          const height = Math.abs(currentY - startY);
+          
+          selection.style.left = left + 'px';
+          selection.style.top = top + 'px';
+          selection.style.width = width + 'px';
+          selection.style.height = height + 'px';
+          
+          sizeIndicator.textContent = width + ' × ' + height;
+          
+          currentRect = { x: left, y: top, width, height };
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (!isSelecting) return;
+          isSelecting = false;
+          
+          if (currentRect && currentRect.width > 10 && currentRect.height > 10) {
+            window.electronAPI?.sendCropResult?.(currentRect);
+          } else {
+            // 选区太小，取消
+            window.electronAPI?.sendCropResult?.(null);
+          }
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            window.electronAPI?.sendCropResult?.(null);
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `
+
+  screenshotOverlayWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(overlayHtml))
+
+  screenshotOverlayWindow.once('ready-to-show', () => {
+    screenshotOverlayWindow?.webContents.send('screenshot-dataurl', screenshotDataUrl)
+  })
+
+  screenshotOverlayWindow.on('closed', () => {
+    screenshotOverlayWindow = null
+  })
+}
+
+// IPC: 处理截图区域选择结果
+ipcMain.on('crop-result', (_event, rect: { x: number; y: number; width: number; height: number } | null) => {
+  if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+    screenshotOverlayWindow.close()
+    screenshotOverlayWindow = null
+  }
+
+  if (!rect) {
+    // 用户取消了截图
+    mainWindow?.show()
+    return
+  }
+
+  // 获取完整屏幕截图并裁剪
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const scaleFactor = primaryDisplay.scaleFactor
+
+  desktopCapturer.getSources({
+    types: ['screen'],
+    thumbnailSize: {
+      width: Math.round(primaryDisplay.size.width * scaleFactor),
+      height: Math.round(primaryDisplay.size.height * scaleFactor)
+    }
+  }).then(sources => {
+    if (sources.length === 0) {
+      mainWindow?.webContents.send('translate-error', '无法获取屏幕截图')
+      mainWindow?.show()
+      return
+    }
+
+    const fullScreenshot = sources[0].thumbnail
+
+    // 裁剪选中区域
+    const croppedImage = fullScreenshot.crop({
+      x: Math.round(rect.x * scaleFactor),
+      y: Math.round(rect.y * scaleFactor),
+      width: Math.round(rect.width * scaleFactor),
+      height: Math.round(rect.height * scaleFactor)
+    })
+
+    const base64Image = croppedImage.toPNG().toString('base64')
+    mainWindow?.show()
+    mainWindow?.webContents.send('screenshot-captured', base64Image)
+  }).catch(err => {
+    console.error('[crop-result] error:', err)
+    mainWindow?.webContents.send('translate-error', (err as Error).message)
+    mainWindow?.show()
+  })
+})
 
 ipcMain.on('capture-screen', captureScreen)
 
