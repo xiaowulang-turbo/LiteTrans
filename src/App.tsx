@@ -11,6 +11,15 @@ interface TranslateResult {
   sumDst?: string
 }
 
+interface UpdateInfo {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  releaseUrl: string
+  releaseNotes: string
+  publishedAt: string
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -31,6 +40,9 @@ declare global {
       openPreview: (base64: string) => void
       toggleAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
       getAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
+      checkForUpdates: () => Promise<UpdateInfo>
+      onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void
+      openReleasesPage: () => void
     }
   }
 }
@@ -58,6 +70,9 @@ function App() {
   const [shortcut, setShortcut] = useState('Alt+Q')
   const [presetShortcuts, setPresetShortcuts] = useState<string[]>([])
   const [isPinned, setIsPinned] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [updateChecking, setUpdateChecking] = useState(false)
+  const [showUpdateToast, setShowUpdateToast] = useState(false)
   const targetLangRef = useRef(targetLang)
 
   useEffect(() => {
@@ -79,6 +94,7 @@ function App() {
     window.electronAPI?.getShortcut?.().then(setShortcut).catch(() => {})
     window.electronAPI?.getPresetShortcuts?.().then(setPresetShortcuts).catch(() => {})
     window.electronAPI?.getAlwaysOnTop?.('main').then(setIsPinned).catch(() => {})
+    window.electronAPI?.checkForUpdates?.().then(setUpdateInfo).catch(() => {})
   }, [])
 
   const handleChangeShortcut = async (newShortcut: string) => {
@@ -219,6 +235,11 @@ function App() {
     window.electronAPI.onTranslateError((err) => {
       setStatus('error')
       setError(err)
+    })
+
+    window.electronAPI.onUpdateAvailable?.((info) => {
+      setUpdateInfo(info)
+      setShowUpdateToast(true)
     })
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -553,6 +574,29 @@ function App() {
                 <option value="kor">한국어</option>
               </select>
             </div>
+            <div className="flex justify-between items-center text-white/60">
+              <span>版本</span>
+              <div className="flex items-center gap-2">
+                {updateInfo?.hasUpdate && (
+                  <span className="text-xs text-green-400">v{updateInfo.latestVersion} 可用</span>
+                )}
+                <button
+                  onClick={async () => {
+                    setUpdateChecking(true)
+                    const info = await window.electronAPI.checkForUpdates()
+                    setUpdateInfo(info)
+                    setUpdateChecking(false)
+                    if (info.hasUpdate) {
+                      window.electronAPI.openReleasesPage()
+                    }
+                  }}
+                  disabled={updateChecking}
+                  className="text-xs bg-white/10 text-white/80 rounded px-2 py-1 hover:bg-white/20 disabled:opacity-50"
+                >
+                  {updateChecking ? '检查中...' : `v${updateInfo?.currentVersion || '...'}`}
+                </button>
+              </div>
+            </div>
             <button
               onClick={handleGoToHistory}
               className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
@@ -794,7 +838,32 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col relative">
+      {/* 更新提示 Toast */}
+      {showUpdateToast && updateInfo?.hasUpdate && (
+        <div className="absolute top-12 left-4 right-4 bg-green-500/90 rounded-lg p-3 shadow-lg z-50 animate-slide-down">
+          <div className="flex items-center justify-between text-white text-sm">
+            <span>🎉 发现新版本 v{updateInfo.latestVersion}</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowUpdateToast(false)}
+                className="text-white/70 hover:text-white text-xs"
+              >
+                稍后
+              </button>
+              <button
+                onClick={() => {
+                  window.electronAPI.openReleasesPage()
+                  setShowUpdateToast(false)
+                }}
+                className="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-xs"
+              >
+                查看
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 标题栏 */}
       <div
         className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"

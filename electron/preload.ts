@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+interface UpdateInfo {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  releaseUrl: string
+  releaseNotes: string
+  publishedAt: string
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   onScreenshotCaptured: (callback: (base64: string) => void) => {
     ipcRenderer.removeAllListeners('screenshot-captured')
@@ -63,5 +72,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   resizePreviewWindow: (width: number, height: number) => {
     ipcRenderer.send('resize-preview-window', width, height)
+  },
+  checkForUpdates: (): Promise<UpdateInfo> => {
+    return ipcRenderer.invoke('check-for-updates')
+  },
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => {
+    ipcRenderer.removeAllListeners('update-available')
+    ipcRenderer.on('update-available', (_event, info) => callback(info))
+  },
+  openReleasesPage: () => {
+    ipcRenderer.send('open-releases-page')
   },
 })
