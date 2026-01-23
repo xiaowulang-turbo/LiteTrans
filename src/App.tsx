@@ -21,6 +21,8 @@ declare global {
       captureScreen: () => void
       copyImage: (base64: string) => void
       closeWindow: () => void
+      minimizeWindow: () => void
+      maximizeWindow: () => void
       openExternal: (url: string) => void
       onOAuthCallback: (callback: (url: string) => void) => void
       getShortcut: () => Promise<string>
@@ -239,6 +241,14 @@ function App() {
     window.electronAPI.captureScreen()
   }
 
+  const handleMinimize = () => {
+    window.electronAPI.minimizeWindow()
+  }
+
+  const handleMaximize = () => {
+    window.electronAPI.maximizeWindow()
+  }
+
   const handleClose = () => {
     window.electronAPI.closeWindow()
   }
@@ -317,13 +327,22 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <span className="text-white/80 text-sm font-medium">LiteTrans</span>
           <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
               onClick={handleClose}
               className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
             />
+            <button
+              onClick={handleMinimize}
+              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
+            />
+            <button
+              onClick={handleMaximize}
+              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
+            />
           </div>
+          <span className="text-white/80 text-sm font-medium">LiteTrans</span>
+          <div className="w-14" />
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
@@ -395,20 +414,30 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <button
-            onClick={handleBackToMain}
-            className="text-white/60 hover:text-white/80 text-xs"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            ← 返回
-          </button>
-          <span className="text-white/80 text-sm font-medium">个人中心</span>
-          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <div className="flex gap-2">
+              <button
+                onClick={handleClose}
+                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
+              />
+              <button
+                onClick={handleMinimize}
+                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
+              />
+              <button
+                onClick={handleMaximize}
+                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
+              />
+            </div>
             <button
-              onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-            />
+              onClick={handleBackToMain}
+              className="text-white/60 hover:text-white/80 text-xs"
+            >
+              ← 返回
+            </button>
           </div>
+          <span className="text-white/80 text-sm font-medium">个人中心</span>
+          <div className="w-14" />
         </div>
 
         <div className="flex-1 flex flex-col items-center p-6 gap-4">
@@ -509,20 +538,30 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <button
-            onClick={() => setView('profile')}
-            className="text-white/60 hover:text-white/80 text-xs"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            ← 返回
-          </button>
-          <span className="text-white/80 text-sm font-medium">翻译历史</span>
-          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <div className="flex gap-2">
+              <button
+                onClick={handleClose}
+                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
+              />
+              <button
+                onClick={handleMinimize}
+                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
+              />
+              <button
+                onClick={handleMaximize}
+                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
+              />
+            </div>
             <button
-              onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-            />
+              onClick={() => setView('profile')}
+              className="text-white/60 hover:text-white/80 text-xs"
+            >
+              ← 返回
+            </button>
           </div>
+          <span className="text-white/80 text-sm font-medium">翻译历史</span>
+          <div className="w-14" />
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -589,20 +628,30 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <button
-            onClick={() => setView('history')}
-            className="text-white/60 hover:text-white/80 text-xs"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            ← 返回
-          </button>
-          <span className="text-white/80 text-sm font-medium">翻译详情</span>
-          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <div className="flex gap-2">
+              <button
+                onClick={handleClose}
+                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
+              />
+              <button
+                onClick={handleMinimize}
+                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
+              />
+              <button
+                onClick={handleMaximize}
+                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
+              />
+            </div>
             <button
-              onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-            />
+              onClick={() => setView('history')}
+              className="text-white/60 hover:text-white/80 text-xs"
+            >
+              ← 返回
+            </button>
           </div>
+          <span className="text-white/80 text-sm font-medium">翻译详情</span>
+          <div className="w-14" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -687,16 +736,22 @@ function App() {
         className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-        <div
-          className="flex gap-2"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
+        <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={handleClose}
             className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
           />
+          <button
+            onClick={handleMinimize}
+            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
+          />
+          <button
+            onClick={handleMaximize}
+            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
+          />
         </div>
+        <span className="text-white/80 text-sm font-medium">LiteTrans</span>
+        <div className="w-14" />
       </div>
 
       {/* 状态指示 */}

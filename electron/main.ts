@@ -196,6 +196,18 @@ ipcMain.on('close-window', () => {
   mainWindow?.hide()
 })
 
+ipcMain.on('minimize-window', () => {
+  mainWindow?.minimize()
+})
+
+ipcMain.on('maximize-window', () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow.unmaximize()
+  } else {
+    mainWindow?.maximize()
+  }
+})
+
 ipcMain.on('open-external', (_event, url: string) => {
   shell.openExternal(url)
 })
