@@ -330,16 +330,22 @@ function App() {
           <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
               onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-            />
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+            </button>
             <button
               onClick={handleMinimize}
-              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
-            />
+              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+            </button>
             <button
               onClick={handleMaximize}
-              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
-            />
+              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
+            </button>
           </div>
           <span className="text-white/80 text-sm font-medium">LiteTrans</span>
           <div className="w-14" />
@@ -418,16 +424,22 @@ function App() {
             <div className="flex gap-2">
               <button
                 onClick={handleClose}
-                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+              </button>
               <button
                 onClick={handleMinimize}
-                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+              </button>
               <button
                 onClick={handleMaximize}
-                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
+              </button>
             </div>
             <button
               onClick={handleBackToMain}
@@ -542,16 +554,22 @@ function App() {
             <div className="flex gap-2">
               <button
                 onClick={handleClose}
-                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+              </button>
               <button
                 onClick={handleMinimize}
-                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+              </button>
               <button
                 onClick={handleMaximize}
-                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
+              </button>
             </div>
             <button
               onClick={() => setView('profile')}
@@ -632,16 +650,22 @@ function App() {
             <div className="flex gap-2">
               <button
                 onClick={handleClose}
-                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+              </button>
               <button
                 onClick={handleMinimize}
-                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+              </button>
               <button
                 onClick={handleMaximize}
-                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
-              />
+                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+              >
+                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
+              </button>
             </div>
             <button
               onClick={() => setView('history')}
@@ -739,16 +763,22 @@ function App() {
         <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={handleClose}
-            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors"
-          />
+            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+          >
+            <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+          </button>
           <button
             onClick={handleMinimize}
-            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors"
-          />
+            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+          >
+            <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+          </button>
           <button
             onClick={handleMaximize}
-            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors"
-          />
+            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+          >
+            <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
+          </button>
         </div>
         <span className="text-white/80 text-sm font-medium">LiteTrans</span>
         <div className="w-14" />
