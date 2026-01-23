@@ -287,7 +287,16 @@ function App() {
     if (authMode === 'login') {
       const { error } = await signInWithEmail(email, password)
       setAuthSubmitting(false)
-      if (error) setAuthError(error.message)
+      if (error) {
+        const msg = error.message.toLowerCase()
+        if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+          setAuthError('邮箱或密码错误')
+        } else if (msg.includes('email not confirmed')) {
+          setAuthError('邮箱未验证，请查收验证邮件')
+        } else {
+          setAuthError(error.message)
+        }
+      }
     } else {
       const { error, isExistingUser } = await signUpWithEmail(email, password)
       setAuthSubmitting(false)
