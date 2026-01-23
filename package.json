@@ -42,6 +42,7 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": "dmg",
+      "icon": "build/icon.icns",
       "extendInfo": {
         "NSAppleEventsUsageDescription": "LiteTrans 需要控制系统截图功能",
         "NSScreenCaptureUsageDescription": "LiteTrans 需要截图权限来翻译屏幕内容"
@@ -49,6 +50,12 @@
     },
     "files": [
       "out/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/trayIcon.png",
+        "to": "trayIcon.png"
+      }
     ],
     "directories": {
       "output": "release"
