@@ -441,16 +441,16 @@ function App() {
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">个人中心</span>
-          <div className="w-14" />
-        </div>
-
-        <div className="flex-1 flex flex-col items-center p-6 gap-4">
           <button
             onClick={handleBackToMain}
-            className="self-start text-white/50 hover:text-white/70 text-xs -mt-2 mb-2"
+            className="text-white/50 hover:text-white/70 text-xs"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            ← 返回主页
+            返回
           </button>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center p-4 gap-3 overflow-y-auto">
           {avatarUrl ? (
             <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border-2 border-white/20" />
           ) : (
@@ -522,20 +522,17 @@ function App() {
             </div>
             <button
               onClick={handleGoToHistory}
-              className="w-full py-2 mt-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
+              className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
             >
               翻译历史 →
             </button>
+            <button
+              onClick={handleLogout}
+              className="w-full py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm transition-colors"
+            >
+              退出登录
+            </button>
           </div>
-        </div>
-
-        <div className="px-4 py-3 border-t border-glass-border">
-          <button
-            onClick={handleLogout}
-            className="w-full py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm transition-colors"
-          >
-            退出登录
-          </button>
         </div>
       </div>
     )
@@ -569,15 +566,12 @@ function App() {
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">翻译历史</span>
-          <div className="w-14" />
-        </div>
-
-        <div className="px-3 pt-2">
           <button
             onClick={() => setView('profile')}
             className="text-white/50 hover:text-white/70 text-xs"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            ← 返回个人中心
+            返回
           </button>
         </div>
 
@@ -666,16 +660,16 @@ function App() {
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">翻译详情</span>
-          <div className="w-14" />
+          <button
+            onClick={() => setView('history')}
+            className="text-white/50 hover:text-white/70 text-xs"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            返回
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <button
-            onClick={() => setView('history')}
-            className="text-white/50 hover:text-white/70 text-xs -mt-1"
-          >
-            ← 返回历史列表
-          </button>
           <div className="flex items-center justify-between text-xs">
             <span className="text-white/40">
               {new Date(selectedRecord.created_at).toLocaleString('zh-CN')}
