@@ -196,15 +196,17 @@ ipcMain.on('close-window', () => {
   mainWindow?.hide()
 })
 
-ipcMain.on('minimize-window', () => {
-  mainWindow?.minimize()
+ipcMain.on('minimize-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  win?.minimize()
 })
 
-ipcMain.on('maximize-window', () => {
-  if (mainWindow?.isMaximized()) {
-    mainWindow.unmaximize()
+ipcMain.on('maximize-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win?.isMaximized()) {
+    win.unmaximize()
   } else {
-    mainWindow?.maximize()
+    win?.maximize()
   }
 })
 
@@ -285,9 +287,26 @@ ipcMain.on('open-preview', (_event, base64: string) => {
         .header span { color: rgba(255,255,255,0.6); font-size: 12px; }
         .header button {
           -webkit-app-region: no-drag;
-          width: 12px; height: 12px; border-radius: 50%;
           border: none; cursor: pointer;
         }
+        .header-left {
+          display: flex; align-items: center; gap: 8px;
+          -webkit-app-region: no-drag;
+        }
+        .traffic-btn {
+          width: 12px; height: 12px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 8px; color: rgba(0,0,0,0.6);
+          transition: all 0.2s;
+        }
+        .traffic-btn span { opacity: 0; font-weight: bold; }
+        .traffic-btn:hover span { opacity: 1; }
+        .close-btn { background: #ff5f57; }
+        .close-btn:hover { background: #ff7b72; }
+        .minimize-btn { background: #febc2e; }
+        .minimize-btn:hover { background: #fec84a; }
+        .maximize-btn { background: #28c840; }
+        .maximize-btn:hover { background: #3dd656; }
         .header-right {
           display: flex; align-items: center; gap: 8px;
           -webkit-app-region: no-drag;
@@ -300,8 +319,6 @@ ipcMain.on('open-preview', (_event, base64: string) => {
         .pin-btn.active { filter: none; }
         .pin-btn.inactive { filter: grayscale(1); opacity: 0.5; }
         .pin-btn:hover { opacity: 1; }
-        .close-btn { background: #ff5f57; }
-        .close-btn:hover { background: #ff7b72; }
         .image-area {
           flex: 1; overflow: auto; padding: 16px;
           display: flex; align-items: flex-start; justify-content: center;
@@ -323,10 +340,14 @@ ipcMain.on('open-preview', (_event, base64: string) => {
     <body>
       <div class="container">
         <div class="header">
+          <div class="header-left">
+            <button class="traffic-btn close-btn" onclick="window.close()" title="关闭"><span>×</span></button>
+            <button class="traffic-btn minimize-btn" id="minimize-btn" title="最小化"><span>−</span></button>
+            <button class="traffic-btn maximize-btn" id="maximize-btn" title="最大化"><span>+</span></button>
+          </div>
           <span>图片预览 (ESC 关闭)</span>
           <div class="header-right">
             <button class="pin-btn active" id="pin-btn" title="窗口置顶">📌</button>
-            <button class="close-btn" onclick="window.close()"></button>
           </div>
         </div>
         <div class="image-area">
@@ -347,6 +368,12 @@ ipcMain.on('open-preview', (_event, base64: string) => {
           const src = isUrl ? imageData : (imageData.startsWith('data:') ? imageData : 'data:image/png;base64,' + imageData);
           document.getElementById('preview-img').src = src;
         });
+        document.getElementById('minimize-btn').onclick = () => {
+          window.electronAPI?.minimizeWindow?.();
+        };
+        document.getElementById('maximize-btn').onclick = () => {
+          window.electronAPI?.maximizeWindow?.();
+        };
         document.getElementById('pin-btn').onclick = async () => {
           const newState = await window.electronAPI?.toggleAlwaysOnTop?.('preview');
           isPinned = newState;
