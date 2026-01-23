@@ -223,6 +223,20 @@ ipcMain.handle('get-always-on-top', (_event, windowType: 'main' | 'preview') => 
   return win?.isAlwaysOnTop() ?? false
 })
 
+ipcMain.on('resize-preview-window', (_event, width: number, height: number) => {
+  if (!previewWindow || previewWindow.isDestroyed()) return
+  const { screen } = require('electron')
+  const display = screen.getPrimaryDisplay()
+  const maxWidth = Math.floor(display.workAreaSize.width * 0.9)
+  const maxHeight = Math.floor(display.workAreaSize.height * 0.9)
+  const minWidth = 300
+  const minHeight = 200
+  const finalWidth = Math.max(minWidth, Math.min(width, maxWidth))
+  const finalHeight = Math.max(minHeight, Math.min(height, maxHeight))
+  previewWindow.setSize(finalWidth, finalHeight)
+  previewWindow.center()
+})
+
 ipcMain.on('open-external', (_event, url: string) => {
   shell.openExternal(url)
 })
@@ -362,11 +376,22 @@ ipcMain.on('open-preview', (_event, base64: string) => {
         let currentImageData = '';
         let isUrl = false;
         let isPinned = false;
+        const HEADER_HEIGHT = 32;
+        const FOOTER_HEIGHT = 56;
+        const PADDING = 32;
         window.electronAPI?.onPreviewImage?.((imageData) => {
           currentImageData = imageData;
           isUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
           const src = isUrl ? imageData : (imageData.startsWith('data:') ? imageData : 'data:image/png;base64,' + imageData);
-          document.getElementById('preview-img').src = src;
+          const img = document.getElementById('preview-img');
+          img.onload = () => {
+            const imgWidth = img.naturalWidth;
+            const imgHeight = img.naturalHeight;
+            const windowWidth = imgWidth + PADDING;
+            const windowHeight = imgHeight + HEADER_HEIGHT + FOOTER_HEIGHT + PADDING;
+            window.electronAPI?.resizePreviewWindow?.(windowWidth, windowHeight);
+          };
+          img.src = src;
         });
         document.getElementById('minimize-btn').onclick = () => {
           window.electronAPI?.minimizeWindow?.();

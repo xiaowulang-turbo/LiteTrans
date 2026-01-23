@@ -61,4 +61,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAlwaysOnTop: (windowType: 'main' | 'preview' = 'main'): Promise<boolean> => {
     return ipcRenderer.invoke('get-always-on-top', windowType)
   },
+  resizePreviewWindow: (width: number, height: number) => {
+    ipcRenderer.send('resize-preview-window', width, height)
+  },
 })
