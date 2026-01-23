@@ -129,6 +129,13 @@ function registerShortcuts() {
     }
   }
   console.log('[registerShortcuts] registered:', currentShortcut)
+
+  // 显示主窗口快捷键
+  if (!globalShortcut.register('Alt+Shift+Q', () => {
+    mainWindow?.show()
+  })) {
+    console.error('[registerShortcuts] failed to register Alt+Shift+T')
+  }
 }
 
 function updateShortcut(newShortcut: string): { success: boolean; shortcut: string } {
