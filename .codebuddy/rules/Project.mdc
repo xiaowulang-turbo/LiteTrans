@@ -2,7 +2,7 @@
 description: 
 alwaysApply: true
 enabled: true
-updatedAt: 2026-01-22T00:00:00.000Z
+updatedAt: 2026-01-23T00:00:00.000Z
 provider: 
 ---
 
@@ -10,7 +10,7 @@ provider:
 
 基于 **Electron + Supabase Edge Function + 百度图片翻译 API** 的 macOS 桌面工具。
 
-**当前状态**: 核心功能完成 (85%)，可通过 `npm run dev` 本地使用。
+**当前状态**: 核心功能完成 (95%)，可通过 `npm run dev` 本地使用。
 
 ---
 
@@ -31,7 +31,7 @@ provider:
 | 框架 | Electron v28+ (electron-vite 构建) |
 | 语言 | TypeScript |
 | 前端 | React + TailwindCSS |
-| 后端 | Supabase (Auth + PostgreSQL + Edge Functions) |
+| 后端 | Supabase (Auth + PostgreSQL + Edge Functions + Storage) |
 | API | 百度图片翻译 (通过 Edge Function 代理) |
 
 ### 2.2 系统架构
@@ -41,16 +41,18 @@ provider:
 │                    渲染进程 (React)                      │
 │  src/App.tsx                                            │
 │  ├── 登录视图 (邮箱/密码 + OAuth GitHub)                │
-│  ├── 主视图 (配额显示 + 翻译结果)                        │
-│  └── 个人中心 (用户信息 + 配额 + 登出)                   │
+│  ├── 主视图 (配额显示 + 翻译结果 + 图片预览)            │
+│  ├── 个人中心 (用户信息 + 配额 + 设置 + 登出)           │
+│  └── 历史记录 (列表 + 详情)                             │
 └────────────────────────┬────────────────────────────────┘
                          │ IPC (preload.ts)
 ┌────────────────────────▼────────────────────────────────┐
 │                    主进程 (Electron)                     │
 │  electron/main.ts                                       │
-│  ├── 全局快捷键 (Alt+Q)                                 │
+│  ├── 全局快捷键 (可配置，默认 Alt+Q)                    │
 │  ├── 系统截图 (screencapture -i)                        │
-│  ├── 系统托盘 (无图标)                                  │
+│  ├── 系统托盘 (含图标)                                  │
+│  ├── 预览窗口 (独立窗口，自适应尺寸)                    │
 │  ├── 复制图片到剪贴板 (nativeImage)                     │
 │  └── OAuth 回调处理 (litetrans:// 协议)                 │
 └─────────────────────────────────────────────────────────┘
@@ -59,6 +61,7 @@ provider:
 │                    Supabase 后端                         │
 │  ├── Auth: 用户认证 (邮箱 + OAuth GitHub)               │
 │  ├── Edge Function: translate-image (代理百度 API)      │
+│  ├── Storage: translation-images (历史图片存储)         │
 │  ├── user_profiles: 用户配额管理                        │
 │  └── RPC: check_and_use_quota / get_user_quota          │
 └─────────────────────────────────────────────────────────┘
@@ -95,6 +98,9 @@ provider:
                     │
                     ▼
               渲染进程显示结果 + 刷新配额
+                    │
+                    ▼
+              上传图片到 Storage + 保存历史记录
 ```
 
 ---
@@ -113,14 +119,19 @@ provider:
 | last_used_date | DATE | 最后使用日期 (用于每日重置) |
 | expire_at | TIMESTAMPTZ | 套餐过期时间 |
 
-**translation_history** (翻译历史，UI 待实现)
+**translation_history** (翻译历史)
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID | 主键 |
 | user_id | UUID | 关联 auth.users |
 | source_lang | TEXT | 源语言 |
 | target_lang | TEXT | 目标语言 |
+| source_text | TEXT | 原文摘要 |
+| translated_text | TEXT | 译文摘要 |
+| image_path | TEXT | Storage 图片路径 |
+| image_size | INTEGER | 图片大小 |
 | status | TEXT | success/failed |
+| error_message | TEXT | 错误信息 |
 
 ### 3.2 数据库函数
 
@@ -130,7 +141,13 @@ provider:
 | `get_user_quota()` | 获取当前配额信息 |
 | `handle_new_user()` | 新用户自动创建 profile（触发器） |
 
-### 3.3 Edge Function
+### 3.3 Storage
+
+**translation-images** - 翻译结果图片存储
+- 路径格式: `{user_id}/{timestamp}.png`
+- 访问方式: 签名 URL (有效期 1 小时)
+
+### 3.4 Edge Function
 
 **translate-image** - 图片翻译代理
 - 路径: `supabase/functions/translate-image/index.ts`
@@ -143,11 +160,14 @@ provider:
 
 ```
 LiteTrans/
+├── build/
+│   ├── icon.icns            # 应用图标
+│   └── trayIcon.png         # 托盘图标 (16x16)
 ├── electron/
-│   ├── main.ts              # 主进程: 窗口/快捷键/托盘/OAuth/截图
+│   ├── main.ts              # 主进程: 窗口/快捷键/托盘/OAuth/截图/预览
 │   └── preload.ts           # IPC 桥接 (contextBridge)
 ├── src/
-│   ├── App.tsx              # 主界面: login/main/profile 三视图
+│   ├── App.tsx              # 主界面: login/main/profile/history/historyDetail
 │   ├── main.tsx             # React 入口
 │   ├── index.html           # HTML 模板
 │   ├── index.css            # TailwindCSS 入口
@@ -182,12 +202,18 @@ LiteTrans/
 ### 5.1 electron/main.ts
 
 主进程核心功能：
-- `createWindow()` - 创建无边框透明窗口 (400x500)
-- `globalShortcut.register('Alt+Q')` - 全局快捷键
-- `execFile('screencapture', ['-i', tmpPath])` - macOS 截图
+- `createWindow()` - 创建无边框透明窗口 (420x500)
+- `createTray()` - 系统托盘 (含图标和菜单)
+- `registerShortcuts()` - 全局快捷键注册 (可配置)
+- `updateShortcut()` - 动态更新快捷键
+- `captureScreen()` - macOS 截图 (screencapture -i)
 - `app.setAsDefaultProtocolClient('litetrans')` - OAuth 回调协议
-- `Tray` - 系统托盘 (暂无图标)
+- `previewWindow` - 独立预览窗口 (自适应图片尺寸)
 - `nativeImage` + `clipboard` - 复制图片到剪贴板
+
+**快捷键配置**:
+- 预设: `Alt+Q`, `Alt+T`, `Alt+S`, `Ctrl+Shift+T`, `Ctrl+Shift+S`
+- 配置持久化: `app.getPath('userData')/config.json`
 
 ### 5.2 electron/preload.ts
 
@@ -196,9 +222,12 @@ IPC 桥接 API (contextBridge.exposeInMainWorld)：
 - `onTranslateError(callback)` - 接收错误信息
 - `captureScreen()` - 触发截图
 - `copyImage(base64)` - 复制图片到剪贴板
-- `closeWindow()` - 隐藏窗口
+- `closeWindow()` / `minimizeWindow()` / `maximizeWindow()` - 窗口控制
 - `openExternal(url)` - 打开外部链接 (OAuth)
 - `onOAuthCallback(callback)` - OAuth 回调
+- `getShortcut()` / `setShortcut()` / `getPresetShortcuts()` - 快捷键管理
+- `openPreview(base64)` - 打开预览窗口
+- `toggleAlwaysOnTop()` / `getAlwaysOnTop()` - 窗口置顶控制
 
 **关键**: 每个监听器注册前先 `removeAllListeners` 防止重复注册。
 
@@ -223,17 +252,20 @@ Supabase 客户端封装：
 - `translateImageViaEdge(base64, accessToken, from, to)` - 翻译 API
 - `checkAndUseQuota()` - 检查并扣减配额
 - `getUserQuota()` - 获取配额信息
-- `saveTranslation()` / `getTranslationHistory()` - 历史记录 (UI 待实现)
+- `saveTranslation()` / `getTranslationHistory()` - 历史记录
+- `uploadTranslationImage()` - 上传图片到 Storage
+- `getTranslationImageUrl()` - 获取图片签名 URL
 
 **关键**: `translateImageViaEdge` 接收 `accessToken` 参数，避免内部调用 `getSession()`。
 
 ### 5.5 src/App.tsx
 
-主界面组件 (约 460 行)：
-- **视图切换**: `login` / `main` / `profile`
+主界面组件 (约 700 行)：
+- **视图切换**: `login` / `main` / `profile` / `history` / `historyDetail`
 - **登录视图**: 邮箱密码表单 + GitHub OAuth
-- **主视图**: 状态指示 + 配额显示 + 翻译结果 + 操作栏
-- **个人中心**: 头像 + 用户信息 + 配额 + 登出
+- **主视图**: 状态指示 + 配额显示 + 翻译结果 + 操作栏 + 图片点击预览
+- **个人中心**: 头像 + 用户信息 + 配额 + 快捷键设置 + 目标语言 + 登出
+- **历史记录**: 列表展示 + 详情查看 (图片 + 原文 + 译文)
 - **毛玻璃 UI**: `bg-glass-bg backdrop-blur-glass`
 - **待翻译缓存**: `pendingImage` 状态，未登录时缓存截图
 
@@ -243,18 +275,27 @@ Supabase 客户端封装：
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 全局快捷键截图 | ✅ | Alt+Q |
+| 全局快捷键截图 | ✅ | 默认 Alt+Q，可自定义 |
+| 快捷键配置 | ✅ | 预设 5 种快捷键可选 |
 | 百度图片翻译 | ✅ | Edge Function 代理 |
+| 目标语言选择 | ✅ | 中/英/日/韩 四种语言 |
+| 翻译失败重试 | ✅ | 错误时显示重试按钮 |
 | 邮箱登录/注册 | ✅ | Supabase Auth |
 | GitHub OAuth | ✅ | litetrans:// 协议回调 |
 | 用户配额管理 | ✅ | 每日 20 次，跨日重置 |
 | 配额实时显示 | ✅ | 右上角 remaining/limit |
 | 复制翻译结果 | ✅ | 复制到系统剪贴板 |
-| 系统托盘 | ⚠️ | 已创建但无图标 |
-| 窗口置顶/无边框 | ✅ | alwaysOnTop + frameless |
+| 系统托盘 | ✅ | 含图标和右键菜单 |
+| 窗口置顶切换 | ✅ | 📌 按钮控制 |
+| 无边框窗口 | ✅ | 自定义标题栏 |
 | ESC 关闭窗口 | ✅ | 隐藏到托盘 |
+| Alt+Shift+Q 显示窗口 | ✅ | 快速唤起 |
 | 毛玻璃 UI | ✅ | backdrop-blur |
-| 个人中心 | ✅ | 用户信息 + 配额 + 登出 |
+| 个人中心 | ✅ | 用户信息 + 配额 + 设置 |
+| 翻译历史 | ✅ | 列表 + 详情查看 |
+| 历史图片存储 | ✅ | Supabase Storage |
+| 图片预览窗口 | ✅ | 独立窗口，自适应尺寸 |
+| 预览窗口置顶 | ✅ | 独立置顶控制 |
 | 未登录截图缓存 | ✅ | 登录后自动翻译 |
 
 ---
@@ -265,13 +306,9 @@ Supabase 客户端封装：
 
 | 优先级 | 功能 | 说明 |
 |--------|------|------|
-| P0 | 应用图标 | icon.icns + 托盘图标 |
 | P0 | macOS 签名公证 | 否则 Gatekeeper 拦截 |
-| P1 | 翻译失败重试 | 添加重试按钮 |
-| P1 | 语言选择 | 当前固定 auto→zh |
-| P1 | 开机自启 | app.setLoginItemSettings |
-| P2 | 历史记录 UI | 数据库已有表 |
 | P2 | 自动更新 | electron-updater |
+| P2 | Windows 支持 | 当前仅 macOS |
 
 ---
 
