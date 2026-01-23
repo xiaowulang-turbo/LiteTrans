@@ -298,18 +298,36 @@ ipcMain.on('open-preview', (_event, base64: string) => {
         </div>
       </div>
       <script>
-        let currentBase64 = '';
-        window.electronAPI?.onPreviewImage?.((base64) => {
-          currentBase64 = base64;
-          const src = base64.startsWith('data:') ? base64 : 'data:image/png;base64,' + base64;
+        let currentImageData = '';
+        let isUrl = false;
+        window.electronAPI?.onPreviewImage?.((imageData) => {
+          currentImageData = imageData;
+          isUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
+          const src = isUrl ? imageData : (imageData.startsWith('data:') ? imageData : 'data:image/png;base64,' + imageData);
           document.getElementById('preview-img').src = src;
         });
-        document.getElementById('copy-btn').onclick = () => {
-          if (currentBase64) {
-            const b64 = currentBase64.startsWith('data:') ? currentBase64.split(',')[1] : currentBase64;
-            window.electronAPI?.copyImage?.(b64);
-            document.getElementById('copy-btn').textContent = '已复制 ✓';
-            setTimeout(() => document.getElementById('copy-btn').textContent = '复制图片', 1500);
+        document.getElementById('copy-btn').onclick = async () => {
+          if (!currentImageData) return;
+          try {
+            if (isUrl) {
+              const res = await fetch(currentImageData);
+              const blob = await res.blob();
+              const reader = new FileReader();
+              reader.onload = () => {
+                const b64 = reader.result.split(',')[1];
+                window.electronAPI?.copyImage?.(b64);
+                document.getElementById('copy-btn').textContent = '已复制 ✓';
+                setTimeout(() => document.getElementById('copy-btn').textContent = '复制图片', 1500);
+              };
+              reader.readAsDataURL(blob);
+            } else {
+              const b64 = currentImageData.startsWith('data:') ? currentImageData.split(',')[1] : currentImageData;
+              window.electronAPI?.copyImage?.(b64);
+              document.getElementById('copy-btn').textContent = '已复制 ✓';
+              setTimeout(() => document.getElementById('copy-btn').textContent = '复制图片', 1500);
+            }
+          } catch (e) {
+            console.error('Copy failed:', e);
           }
         };
         document.addEventListener('keydown', (e) => {
