@@ -272,18 +272,26 @@ function App() {
     setAuthError('')
     setAuthSubmitting(true)
     
-    const { error } = authMode === 'login' 
-      ? await signInWithEmail(email, password)
-      : await signUpWithEmail(email, password)
-    
-    setAuthSubmitting(false)
-    if (error) {
-      setAuthError(error.message)
-    } else if (authMode === 'register') {
-      setAuthError('')
-      setAuthMode('login')
-      setPassword('')
-      alert('注册成功，请查收验证邮件后登录')
+    if (authMode === 'login') {
+      const { error } = await signInWithEmail(email, password)
+      setAuthSubmitting(false)
+      if (error) setAuthError(error.message)
+    } else {
+      const { error, isExistingUser } = await signUpWithEmail(email, password)
+      setAuthSubmitting(false)
+      if (error) {
+        setAuthError(error.message)
+      } else if (isExistingUser) {
+        // 重复注册：Supabase 返回成功但 identities 为空
+        setAuthError('该邮箱已注册，请直接登录')
+        setAuthMode('login')
+        setPassword('')
+      } else {
+        setAuthError('')
+        setAuthMode('login')
+        setPassword('')
+        alert('注册成功，请查收验证邮件后登录')
+      }
     }
   }
 

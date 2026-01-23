@@ -113,7 +113,10 @@ export function useAuth() {
       email,
       password,
     })
-    return { data, error }
+    // Supabase 重复注册不返回 error，而是返回空 identities
+    // 检测 user 存在但 identities 为空 = 已注册用户
+    const isExistingUser = data?.user && (!data.user.identities || data.user.identities.length === 0)
+    return { data, error, isExistingUser }
   }
 
   const signOut = async () => {
