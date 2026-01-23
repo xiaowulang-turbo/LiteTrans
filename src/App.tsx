@@ -57,7 +57,7 @@ function App() {
   const [targetLang, setTargetLang] = useState<'zh' | 'en' | 'jp' | 'kor'>('zh')
   const [shortcut, setShortcut] = useState('Alt+Q')
   const [presetShortcuts, setPresetShortcuts] = useState<string[]>([])
-  const [isPinned, setIsPinned] = useState(true)
+  const [isPinned, setIsPinned] = useState(false)
   const targetLangRef = useRef(targetLang)
 
   useEffect(() => {

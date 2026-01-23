@@ -77,7 +77,7 @@ function createWindow() {
     show: false,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     skipTaskbar: true,
     webPreferences: {
@@ -252,7 +252,7 @@ ipcMain.on('open-preview', (_event, base64: string) => {
     show: false,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -347,7 +347,7 @@ ipcMain.on('open-preview', (_event, base64: string) => {
           </div>
           <span>图片预览 (ESC 关闭)</span>
           <div class="header-right">
-            <button class="pin-btn active" id="pin-btn" title="窗口置顶">📌</button>
+            <button class="pin-btn inactive" id="pin-btn" title="窗口置顶">📌</button>
           </div>
         </div>
         <div class="image-area">
@@ -361,7 +361,7 @@ ipcMain.on('open-preview', (_event, base64: string) => {
       <script>
         let currentImageData = '';
         let isUrl = false;
-        let isPinned = true;
+        let isPinned = false;
         window.electronAPI?.onPreviewImage?.((imageData) => {
           currentImageData = imageData;
           isUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
