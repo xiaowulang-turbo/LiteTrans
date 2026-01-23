@@ -55,4 +55,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('preview-image')
     ipcRenderer.on('preview-image', (_event, base64) => callback(base64))
   },
+  toggleAlwaysOnTop: (windowType: 'main' | 'preview' = 'main'): Promise<boolean> => {
+    return ipcRenderer.invoke('toggle-always-on-top', windowType)
+  },
+  getAlwaysOnTop: (windowType: 'main' | 'preview' = 'main'): Promise<boolean> => {
+    return ipcRenderer.invoke('get-always-on-top', windowType)
+  },
 })

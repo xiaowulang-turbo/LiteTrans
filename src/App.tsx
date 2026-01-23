@@ -29,6 +29,8 @@ declare global {
       setShortcut: (shortcut: string) => Promise<{ success: boolean; shortcut: string }>
       getPresetShortcuts: () => Promise<string[]>
       openPreview: (base64: string) => void
+      toggleAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
+      getAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
     }
   }
 }
@@ -55,6 +57,7 @@ function App() {
   const [targetLang, setTargetLang] = useState<'zh' | 'en' | 'jp' | 'kor'>('zh')
   const [shortcut, setShortcut] = useState('Alt+Q')
   const [presetShortcuts, setPresetShortcuts] = useState<string[]>([])
+  const [isPinned, setIsPinned] = useState(true)
   const targetLangRef = useRef(targetLang)
 
   useEffect(() => {
@@ -75,11 +78,17 @@ function App() {
   useEffect(() => {
     window.electronAPI?.getShortcut?.().then(setShortcut).catch(() => {})
     window.electronAPI?.getPresetShortcuts?.().then(setPresetShortcuts).catch(() => {})
+    window.electronAPI?.getAlwaysOnTop?.('main').then(setIsPinned).catch(() => {})
   }, [])
 
   const handleChangeShortcut = async (newShortcut: string) => {
     const result = await window.electronAPI.setShortcut(newShortcut)
     setShortcut(result.shortcut)
+  }
+
+  const handleTogglePin = async () => {
+    const newState = await window.electronAPI.toggleAlwaysOnTop('main')
+    setIsPinned(newState)
   }
 
   const handleGoToHistory = async () => {
@@ -348,7 +357,14 @@ function App() {
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-          <div className="w-14" />
+          <button
+            onClick={handleTogglePin}
+            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            title={isPinned ? '取消置顶' : '窗口置顶'}
+          >
+            📌
+          </button>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
@@ -441,13 +457,21 @@ function App() {
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">个人中心</span>
-          <button
-            onClick={handleBackToMain}
-            className="text-white/50 hover:text-white/70 text-xs"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            返回
-          </button>
+          <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <button
+              onClick={handleTogglePin}
+              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+              title={isPinned ? '取消置顶' : '窗口置顶'}
+            >
+              📌
+            </button>
+            <button
+              onClick={handleBackToMain}
+              className="text-white/50 hover:text-white/70 text-xs"
+            >
+              返回
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col items-center p-4 gap-3 overflow-y-auto">
@@ -566,13 +590,21 @@ function App() {
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">翻译历史</span>
-          <button
-            onClick={() => setView('profile')}
-            className="text-white/50 hover:text-white/70 text-xs"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            返回
-          </button>
+          <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <button
+              onClick={handleTogglePin}
+              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+              title={isPinned ? '取消置顶' : '窗口置顶'}
+            >
+              📌
+            </button>
+            <button
+              onClick={() => setView('profile')}
+              className="text-white/50 hover:text-white/70 text-xs"
+            >
+              返回
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -660,13 +692,21 @@ function App() {
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">翻译详情</span>
-          <button
-            onClick={() => setView('history')}
-            className="text-white/50 hover:text-white/70 text-xs"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            返回
-          </button>
+          <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <button
+              onClick={handleTogglePin}
+              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+              title={isPinned ? '取消置顶' : '窗口置顶'}
+            >
+              📌
+            </button>
+            <button
+              onClick={() => setView('history')}
+              className="text-white/50 hover:text-white/70 text-xs"
+            >
+              返回
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -772,7 +812,14 @@ function App() {
           </button>
         </div>
         <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-        <div className="w-14" />
+        <button
+          onClick={handleTogglePin}
+          className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          title={isPinned ? '取消置顶' : '窗口置顶'}
+        >
+          📌
+        </button>
       </div>
 
       {/* 状态指示 */}

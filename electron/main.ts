@@ -208,6 +208,19 @@ ipcMain.on('maximize-window', () => {
   }
 })
 
+ipcMain.handle('toggle-always-on-top', (_event, windowType: 'main' | 'preview') => {
+  const win = windowType === 'preview' ? previewWindow : mainWindow
+  if (!win) return false
+  const newState = !win.isAlwaysOnTop()
+  win.setAlwaysOnTop(newState)
+  return newState
+})
+
+ipcMain.handle('get-always-on-top', (_event, windowType: 'main' | 'preview') => {
+  const win = windowType === 'preview' ? previewWindow : mainWindow
+  return win?.isAlwaysOnTop() ?? false
+})
+
 ipcMain.on('open-external', (_event, url: string) => {
   shell.openExternal(url)
 })
@@ -275,6 +288,18 @@ ipcMain.on('open-preview', (_event, base64: string) => {
           width: 12px; height: 12px; border-radius: 50%;
           border: none; cursor: pointer;
         }
+        .header-right {
+          display: flex; align-items: center; gap: 8px;
+          -webkit-app-region: no-drag;
+        }
+        .pin-btn {
+          width: auto; height: auto; border-radius: 0;
+          background: transparent; font-size: 12px;
+          cursor: pointer; transition: all 0.2s;
+        }
+        .pin-btn.active { filter: none; }
+        .pin-btn.inactive { filter: grayscale(1); opacity: 0.5; }
+        .pin-btn:hover { opacity: 1; }
         .close-btn { background: #ff5f57; }
         .close-btn:hover { background: #ff7b72; }
         .image-area {
@@ -299,7 +324,10 @@ ipcMain.on('open-preview', (_event, base64: string) => {
       <div class="container">
         <div class="header">
           <span>图片预览 (ESC 关闭)</span>
-          <button class="close-btn" onclick="window.close()"></button>
+          <div class="header-right">
+            <button class="pin-btn active" id="pin-btn" title="窗口置顶">📌</button>
+            <button class="close-btn" onclick="window.close()"></button>
+          </div>
         </div>
         <div class="image-area">
           <img id="preview-img" src="" alt="预览">
@@ -312,12 +340,20 @@ ipcMain.on('open-preview', (_event, base64: string) => {
       <script>
         let currentImageData = '';
         let isUrl = false;
+        let isPinned = true;
         window.electronAPI?.onPreviewImage?.((imageData) => {
           currentImageData = imageData;
           isUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
           const src = isUrl ? imageData : (imageData.startsWith('data:') ? imageData : 'data:image/png;base64,' + imageData);
           document.getElementById('preview-img').src = src;
         });
+        document.getElementById('pin-btn').onclick = async () => {
+          const newState = await window.electronAPI?.toggleAlwaysOnTop?.('preview');
+          isPinned = newState;
+          const btn = document.getElementById('pin-btn');
+          btn.className = 'pin-btn ' + (isPinned ? 'active' : 'inactive');
+          btn.title = isPinned ? '取消置顶' : '窗口置顶';
+        };
         document.getElementById('copy-btn').onclick = async () => {
           if (!currentImageData) return;
           try {
