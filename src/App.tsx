@@ -420,32 +420,24 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <div className="flex gap-2">
-              <button
-                onClick={handleClose}
-                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-              </button>
-              <button
-                onClick={handleMinimize}
-                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-              </button>
-              <button
-                onClick={handleMaximize}
-                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-              </button>
-            </div>
+          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
-              onClick={handleBackToMain}
-              className="text-white/60 hover:text-white/80 text-xs"
+              onClick={handleClose}
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
             >
-              ← 返回
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+            </button>
+            <button
+              onClick={handleMinimize}
+              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+            </button>
+            <button
+              onClick={handleMaximize}
+              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">个人中心</span>
@@ -453,6 +445,12 @@ function App() {
         </div>
 
         <div className="flex-1 flex flex-col items-center p-6 gap-4">
+          <button
+            onClick={handleBackToMain}
+            className="self-start text-white/50 hover:text-white/70 text-xs -mt-2 mb-2"
+          >
+            ← 返回主页
+          </button>
           {avatarUrl ? (
             <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border-2 border-white/20" />
           ) : (
@@ -550,36 +548,37 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <div className="flex gap-2">
-              <button
-                onClick={handleClose}
-                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-              </button>
-              <button
-                onClick={handleMinimize}
-                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-              </button>
-              <button
-                onClick={handleMaximize}
-                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-              </button>
-            </div>
+          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
-              onClick={() => setView('profile')}
-              className="text-white/60 hover:text-white/80 text-xs"
+              onClick={handleClose}
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
             >
-              ← 返回
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+            </button>
+            <button
+              onClick={handleMinimize}
+              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+            </button>
+            <button
+              onClick={handleMaximize}
+              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">翻译历史</span>
           <div className="w-14" />
+        </div>
+
+        <div className="px-3 pt-2">
+          <button
+            onClick={() => setView('profile')}
+            className="text-white/50 hover:text-white/70 text-xs"
+          >
+            ← 返回个人中心
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -646,32 +645,24 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <div className="flex gap-2">
-              <button
-                onClick={handleClose}
-                className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-              </button>
-              <button
-                onClick={handleMinimize}
-                className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-              </button>
-              <button
-                onClick={handleMaximize}
-                className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-              >
-                <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-              </button>
-            </div>
+          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
-              onClick={() => setView('history')}
-              className="text-white/60 hover:text-white/80 text-xs"
+              onClick={handleClose}
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
             >
-              ← 返回
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+            </button>
+            <button
+              onClick={handleMinimize}
+              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+            </button>
+            <button
+              onClick={handleMaximize}
+              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+            >
+              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
             </button>
           </div>
           <span className="text-white/80 text-sm font-medium">翻译详情</span>
@@ -679,6 +670,12 @@ function App() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <button
+            onClick={() => setView('history')}
+            className="text-white/50 hover:text-white/70 text-xs -mt-1"
+          >
+            ← 返回历史列表
+          </button>
           <div className="flex items-center justify-between text-xs">
             <span className="text-white/40">
               {new Date(selectedRecord.created_at).toLocaleString('zh-CN')}
