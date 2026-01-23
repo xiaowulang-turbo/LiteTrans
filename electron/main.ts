@@ -17,6 +17,7 @@ import os from 'os'
 const isDev = !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
+let previewWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let currentShortcut: string = 'Alt+Q'
 
@@ -192,15 +193,6 @@ ipcMain.on('open-external', (_event, url: string) => {
   shell.openExternal(url)
 })
 
-ipcMain.handle('get-auto-launch', () => {
-  return app.getLoginItemSettings().openAtLogin
-})
-
-ipcMain.handle('set-auto-launch', (_event, enabled: boolean) => {
-  app.setLoginItemSettings({ openAtLogin: enabled })
-  return app.getLoginItemSettings().openAtLogin
-})
-
 ipcMain.handle('get-shortcut', () => {
   return currentShortcut
 })
@@ -211,6 +203,126 @@ ipcMain.handle('set-shortcut', (_event, shortcut: string) => {
 
 ipcMain.handle('get-preset-shortcuts', () => {
   return PRESET_SHORTCUTS
+})
+
+ipcMain.on('open-preview', (_event, base64: string) => {
+  if (previewWindow && !previewWindow.isDestroyed()) {
+    previewWindow.webContents.send('preview-image', base64)
+    previewWindow.show()
+    return
+  }
+
+  previewWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: true,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  const previewHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+          width: 100%; height: 100%; 
+          background: rgba(0,0,0,0.95);
+          overflow: hidden;
+        }
+        .container {
+          width: 100%; height: 100%;
+          display: flex; flex-direction: column;
+        }
+        .header {
+          height: 32px; 
+          background: rgba(0,0,0,0.5);
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0 12px;
+          -webkit-app-region: drag;
+        }
+        .header span { color: rgba(255,255,255,0.6); font-size: 12px; }
+        .header button {
+          -webkit-app-region: no-drag;
+          width: 12px; height: 12px; border-radius: 50%;
+          border: none; cursor: pointer;
+        }
+        .close-btn { background: #ff5f57; }
+        .close-btn:hover { background: #ff7b72; }
+        .image-area {
+          flex: 1; overflow: auto; padding: 16px;
+          display: flex; align-items: flex-start; justify-content: center;
+        }
+        .image-area img { max-width: none; border-radius: 8px; }
+        .footer {
+          padding: 12px; display: flex; justify-content: center; gap: 12px;
+        }
+        .footer button {
+          padding: 8px 24px; border-radius: 20px; border: none;
+          font-size: 13px; cursor: pointer; transition: all 0.2s;
+        }
+        .copy-btn { background: rgba(59,130,246,0.8); color: white; }
+        .copy-btn:hover { background: rgba(59,130,246,1); }
+        .close-footer-btn { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+        .close-footer-btn:hover { background: rgba(255,255,255,0.2); }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <span>图片预览 (ESC 关闭)</span>
+          <button class="close-btn" onclick="window.close()"></button>
+        </div>
+        <div class="image-area">
+          <img id="preview-img" src="" alt="预览">
+        </div>
+        <div class="footer">
+          <button class="copy-btn" id="copy-btn">复制图片</button>
+          <button class="close-footer-btn" onclick="window.close()">关闭</button>
+        </div>
+      </div>
+      <script>
+        let currentBase64 = '';
+        window.electronAPI?.onPreviewImage?.((base64) => {
+          currentBase64 = base64;
+          const src = base64.startsWith('data:') ? base64 : 'data:image/png;base64,' + base64;
+          document.getElementById('preview-img').src = src;
+        });
+        document.getElementById('copy-btn').onclick = () => {
+          if (currentBase64) {
+            const b64 = currentBase64.startsWith('data:') ? currentBase64.split(',')[1] : currentBase64;
+            window.electronAPI?.copyImage?.(b64);
+            document.getElementById('copy-btn').textContent = '已复制 ✓';
+            setTimeout(() => document.getElementById('copy-btn').textContent = '复制图片', 1500);
+          }
+        };
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') window.close();
+        });
+      </script>
+    </body>
+    </html>
+  `
+
+  previewWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(previewHtml))
+
+  previewWindow.once('ready-to-show', () => {
+    previewWindow?.webContents.send('preview-image', base64)
+    previewWindow?.show()
+  })
+
+  previewWindow.on('closed', () => {
+    previewWindow = null
+  })
 })
 
 app.on('open-url', (_event, url) => {

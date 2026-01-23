@@ -23,11 +23,10 @@ declare global {
       closeWindow: () => void
       openExternal: (url: string) => void
       onOAuthCallback: (callback: (url: string) => void) => void
-      getAutoLaunch: () => Promise<boolean>
-      setAutoLaunch: (enabled: boolean) => Promise<boolean>
       getShortcut: () => Promise<string>
       setShortcut: (shortcut: string) => Promise<{ success: boolean; shortcut: string }>
       getPresetShortcuts: () => Promise<string[]>
+      openPreview: (base64: string) => void
     }
   }
 }
@@ -52,7 +51,6 @@ function App() {
   const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
   const [lastImage, setLastImage] = useState<string | null>(null)
   const [targetLang, setTargetLang] = useState<'zh' | 'en' | 'jp' | 'kor'>('zh')
-  const [autoLaunch, setAutoLaunch] = useState(false)
   const [shortcut, setShortcut] = useState('Alt+Q')
   const [presetShortcuts, setPresetShortcuts] = useState<string[]>([])
   const targetLangRef = useRef(targetLang)
@@ -73,15 +71,9 @@ function App() {
   const handleBackToMain = () => setView('main')
 
   useEffect(() => {
-    window.electronAPI?.getAutoLaunch?.().then(setAutoLaunch).catch(() => {})
     window.electronAPI?.getShortcut?.().then(setShortcut).catch(() => {})
     window.electronAPI?.getPresetShortcuts?.().then(setPresetShortcuts).catch(() => {})
   }, [])
-
-  const handleToggleAutoLaunch = async () => {
-    const newValue = await window.electronAPI.setAutoLaunch(!autoLaunch)
-    setAutoLaunch(newValue)
-  }
 
   const handleChangeShortcut = async (newShortcut: string) => {
     const result = await window.electronAPI.setShortcut(newShortcut)
@@ -227,9 +219,10 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [refreshQuota])
 
-  const handleCopy = () => {
-    if (result?.image) {
-      window.electronAPI.copyImage(result.image)
+  const handleCopy = (base64?: string) => {
+    const imageToCopy = base64 || result?.image
+    if (imageToCopy) {
+      window.electronAPI.copyImage(imageToCopy)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     }
@@ -301,6 +294,10 @@ function App() {
   }
 
   const quotaExhausted = quota?.success && quota.remaining === 0
+
+  const openPreview = (imageData: string) => {
+    window.electronAPI.openPreview(imageData)
+  }
 
   if (authLoading) {
     return (
@@ -484,15 +481,6 @@ function App() {
                 <option value="kor">한국어</option>
               </select>
             </div>
-            <div className="flex justify-between items-center text-white/60">
-              <span>开机自启</span>
-              <button
-                onClick={handleToggleAutoLaunch}
-                className={`w-10 h-5 rounded-full transition-colors relative ${autoLaunch ? 'bg-blue-500' : 'bg-white/20'}`}
-              >
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${autoLaunch ? 'left-5' : 'left-0.5'}`} />
-              </button>
-            </div>
             <button
               onClick={handleGoToHistory}
               className="w-full py-2 mt-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
@@ -635,7 +623,9 @@ function App() {
                 <img
                   src={detailImageUrl}
                   alt="翻译结果"
-                  className="w-full rounded-lg object-contain bg-white/5"
+                  className="w-full rounded-lg object-contain bg-white/5 cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => openPreview(detailImageUrl)}
+                  title="点击放大"
                 />
               ) : (
                 <div className="h-32 rounded-lg bg-white/5 flex items-center justify-center">
@@ -756,7 +746,9 @@ function App() {
           <img
             src={`data:image/png;base64,${result.image}`}
             alt="翻译结果"
-            className="max-w-full max-h-[400px] rounded-lg object-contain"
+            className="max-w-full max-h-[400px] rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => openPreview(result.image)}
+            title="点击放大"
           />
         ) : (
           <div className="text-white/40 text-sm">暂无翻译结果</div>
@@ -773,7 +765,7 @@ function App() {
           {quotaExhausted ? '配额已用完' : '重新截图'}
         </button>
         <button
-          onClick={handleCopy}
+          onClick={() => handleCopy()}
           disabled={!result?.image}
           className="flex-1 py-2 rounded-full bg-blue-500/80 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/30 text-white text-sm transition-colors"
         >

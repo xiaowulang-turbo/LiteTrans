@@ -33,12 +33,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('oauth-callback')
     ipcRenderer.on('oauth-callback', (_event, url) => callback(url))
   },
-  getAutoLaunch: (): Promise<boolean> => {
-    return ipcRenderer.invoke('get-auto-launch')
-  },
-  setAutoLaunch: (enabled: boolean): Promise<boolean> => {
-    return ipcRenderer.invoke('set-auto-launch', enabled)
-  },
   getShortcut: (): Promise<string> => {
     return ipcRenderer.invoke('get-shortcut')
   },
@@ -47,5 +41,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getPresetShortcuts: (): Promise<string[]> => {
     return ipcRenderer.invoke('get-preset-shortcuts')
+  },
+  openPreview: (base64: string) => {
+    ipcRenderer.send('open-preview', base64)
+  },
+  onPreviewImage: (callback: (base64: string) => void) => {
+    ipcRenderer.removeAllListeners('preview-image')
+    ipcRenderer.on('preview-image', (_event, base64) => callback(base64))
   },
 })
