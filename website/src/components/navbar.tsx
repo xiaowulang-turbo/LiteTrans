@@ -36,7 +36,7 @@ export function Navbar() {
             下载
           </a>
           <a
-            href="https://github.com/user/litetrans"
+            href="https://github.com/ArcMichael/LiteTrans"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -46,7 +46,11 @@ export function Navbar() {
         </div>
 
         {/* CTA */}
-        <Button size="sm" className="bg-primary hover:bg-primary/90">
+        <Button
+          size="sm"
+          className="bg-primary hover:bg-primary/90"
+          onClick={() => document.getElementById("download")?.scrollIntoView({ behavior: "smooth" })}
+        >
           下载
         </Button>
       </nav>

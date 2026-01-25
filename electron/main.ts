@@ -260,6 +260,7 @@ async function captureScreenWindows() {
     console.time('screenshot-capture')
     
     // 获取主显示器
+    // TODO: 支持多显示器截图 (当前仅支持主显示器)
     const primaryDisplay = screen.getPrimaryDisplay()
     const { width, height } = primaryDisplay.size
     
