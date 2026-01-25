@@ -42,7 +42,7 @@ export function Hero() {
 						className='h-12 px-6 text-base bg-primary hover:bg-primary/90 glow'
 						onClick={() =>
 							window.open(
-								'https://github.com/ArcMichael/LiteTrans/releases/latest',
+								'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/latest/download/LiteTrans-1.0.0.dmg',
 								'_blank'
 							)
 						}
@@ -55,7 +55,7 @@ export function Hero() {
 						className='h-12 px-6 text-base bg-primary hover:bg-primary/90 glow'
 						onClick={() =>
 							window.open(
-								'https://github.com/ArcMichael/LiteTrans/releases/latest',
+								'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/latest/download/LiteTrans.Setup.1.0.0.exe',
 								'_blank'
 							)
 						}

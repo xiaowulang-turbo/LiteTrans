@@ -31,7 +31,7 @@ export function Download() {
 								className='h-14 px-10 text-lg bg-primary hover:bg-primary/90 glow'
 								onClick={() =>
 									window.open(
-										'https://github.com/ArcMichael/LiteTrans/releases/latest',
+										'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/latest/download/LiteTrans-1.0.0.dmg',
 										'_blank'
 									)
 								}
@@ -44,7 +44,7 @@ export function Download() {
 								className='h-14 px-10 text-lg bg-primary hover:bg-primary/90 glow'
 								onClick={() =>
 									window.open(
-										'https://github.com/ArcMichael/LiteTrans/releases/latest',
+										'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/latest/download/LiteTrans.Setup.1.0.0.exe',
 										'_blank'
 									)
 								}
