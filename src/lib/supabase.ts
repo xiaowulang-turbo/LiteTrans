@@ -77,6 +77,28 @@ export async function saveTranslation(record: Omit<TranslationRecord, 'id' | 'cr
   return data
 }
 
+export interface PlanConfig {
+  plan_name: string
+  display_name: string
+  daily_limit: number
+  description: string
+  price_monthly: number
+  price_yearly: number
+  features: string[]
+  lemon_variant_id_monthly?: string
+  lemon_variant_id_yearly?: string
+}
+
+export async function getPlans() {
+  const { data, error } = await supabase
+    .from('plan_configs')
+    .select('*')
+    .order('daily_limit', { ascending: true })
+  
+  if (error) throw error
+  return data as PlanConfig[]
+}
+
 export async function getTranslationHistory(limit = 20, offset = 0) {
   const { data, error } = await supabase
     .from('translation_history')
