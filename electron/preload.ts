@@ -88,6 +88,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('screenshot-dataurl')
     ipcRenderer.on('screenshot-dataurl', (_event, dataUrl) => callback(dataUrl))
   },
+  // Buffer 直传优化（跳过 Base64 编码）
+  onScreenshotBuffer: (callback: (buffer: ArrayBuffer) => void) => {
+    ipcRenderer.removeAllListeners('screenshot-buffer')
+    ipcRenderer.on('screenshot-buffer', (_event, buffer) => callback(buffer))
+  },
   sendCropResult: (rect: { x: number; y: number; width: number; height: number } | null) => {
     ipcRenderer.send('crop-result', rect)
   },

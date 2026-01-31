@@ -14,9 +14,12 @@ import path from 'path'
 import { exec } from 'child_process'
 import fs from 'fs'
 import os from 'os'
-import { Monitor } from 'node-screenshots'
+import { Monitor, Image } from 'node-screenshots'
 
 const isDev = !app.isPackaged
+
+// 全局变量缓存最近一次的截图对象（用于 Windows 单次采集优化）
+let lastScreenshot: Image | null = null
 
 // === 版本更新检查 ===
 interface UpdateInfo {
@@ -272,16 +275,15 @@ async function captureScreenWindows() {
       return
     }
     
-    // 获取主显示器截图
+    // 获取主显示器截图并缓存
     const monitor = (monitors.find(m => m.isPrimary) || monitors[0]) as Monitor
-    const image = monitor.captureImageSync()
-    const pngBuffer = image.toPngSync()
-    const screenshotDataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`
+    lastScreenshot = monitor.captureImageSync()
+    const pngBuffer = lastScreenshot.toPngSync()
     
     console.timeEnd('screenshot-capture')
     
-    // 创建全屏覆盖窗口用于区域选择
-    createScreenshotOverlay(screenshotDataUrl, width, height)
+    // 显示覆盖窗口用于区域选择
+    showScreenshotOverlay(pngBuffer)
   } catch (err) {
     const error = err as Error
     console.error('[captureScreenWindows] error:', error)
@@ -290,32 +292,36 @@ async function captureScreenWindows() {
   }
 }
 
-function createScreenshotOverlay(screenshotDataUrl: string, width: number, height: number) {
+// 预创建截图覆盖窗口（应用启动时调用）
+function prepareScreenshotOverlay() {
   if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-    screenshotOverlayWindow.close()
+    return
   }
 
   const primaryDisplay = screen.getPrimaryDisplay()
-  const { x, y } = primaryDisplay.bounds
+  const { x, y, width, height } = primaryDisplay.bounds // 使用 bounds 覆盖任务栏
 
   screenshotOverlayWindow = new BrowserWindow({
     x,
     y,
     width,
     height,
+    show: false, // 初始隐藏
     frame: false,
     transparent: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
     movable: false,
-    fullscreen: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
+  
+  // 确保窗口在任务栏之上
+  screenshotOverlayWindow.setAlwaysOnTop(true, 'screen-saver')
 
   const overlayHtml = `
     <!DOCTYPE html>
@@ -397,8 +403,16 @@ function createScreenshotOverlay(screenshotDataUrl: string, width: number, heigh
         let startX = 0, startY = 0;
         let currentRect = null;
 
-        window.electronAPI?.onScreenshotDataUrl?.((dataUrl) => {
-          screenshot.src = dataUrl;
+        // 监听 PNG Buffer（零拷贝优化）
+        window.electronAPI?.onScreenshotBuffer?.((buffer) => {
+          // 将 Buffer 转为 Blob URL
+          const blob = new Blob([buffer], { type: 'image/png' });
+          const url = URL.createObjectURL(blob);
+          screenshot.src = url;
+          
+          // 释放旧的 Blob URL
+          screenshot.onload = () => URL.revokeObjectURL(url);
+          
           overlay.style.display = 'block';
         });
 
@@ -459,13 +473,25 @@ function createScreenshotOverlay(screenshotDataUrl: string, width: number, heigh
 
   screenshotOverlayWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(overlayHtml))
 
-  screenshotOverlayWindow.once('ready-to-show', () => {
-    screenshotOverlayWindow?.webContents.send('screenshot-dataurl', screenshotDataUrl)
-  })
-
   screenshotOverlayWindow.on('closed', () => {
     screenshotOverlayWindow = null
   })
+}
+
+// 显示并更新截图覆盖窗口（截图时调用）
+function showScreenshotOverlay(pngBuffer: Buffer) {
+  if (!screenshotOverlayWindow || screenshotOverlayWindow.isDestroyed()) {
+    prepareScreenshotOverlay()
+  }
+  
+  // 更新窗口位置和尺寸（支持多显示器/分辨率变化）
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { x, y, width, height } = primaryDisplay.bounds
+  screenshotOverlayWindow?.setBounds({ x, y, width, height })
+  
+  // 显示窗口并发送 PNG Buffer（跳过 Base64 编码）
+  screenshotOverlayWindow?.show()
+  screenshotOverlayWindow?.webContents.send('screenshot-buffer', pngBuffer)
 }
 
 // IPC: 处理截图区域选择结果
@@ -476,31 +502,25 @@ ipcMain.on('crop-result', (_event, rect: { x: number; y: number; width: number; 
   }
 
   if (!rect) {
-    // 用户取消了截图
-    mainWindow?.show()
+    // 用户取消了截图，清除内存中的截图对象
+    lastScreenshot = null
+    // 不显示主窗口，用户主动取消截图时不应该显示翻译窗口
     return
   }
 
-  // 使用 node-screenshots 原生截图并裁剪
+  // 使用缓存的截图对象进行裁剪（解决二次采集导致的画面不一致和性能问题）
   try {
+    if (!lastScreenshot) {
+      throw new Error('未获取到截图缓存')
+    }
+
     console.time('screenshot-crop')
     
     const primaryDisplay = screen.getPrimaryDisplay()
     const scaleFactor = primaryDisplay.scaleFactor
     
-    // 获取主显示器
-    const monitors = Monitor.all()
-    if (monitors.length === 0) {
-      mainWindow?.webContents.send('translate-error', '无法获取显示器')
-      mainWindow?.show()
-      return
-    }
-    
-    const monitor = (monitors.find(m => m.isPrimary) || monitors[0]) as Monitor
-    
     // 直接截取选中区域（原生坐标需要乘以 scaleFactor）
-    const image = monitor.captureImageSync()
-    const croppedImage = image.cropSync(
+    const croppedImage = lastScreenshot.cropSync(
       Math.round(rect.x * scaleFactor),
       Math.round(rect.y * scaleFactor),
       Math.round(rect.width * scaleFactor),
@@ -510,12 +530,16 @@ ipcMain.on('crop-result', (_event, rect: { x: number; y: number; width: number; 
     const pngBuffer = croppedImage.toPngSync()
     const base64Image = pngBuffer.toString('base64')
     
+    // 裁剪完成后释放大对象引用，避免内存泄漏
+    lastScreenshot = null
+    
     console.timeEnd('screenshot-crop')
     
     mainWindow?.show()
     mainWindow?.webContents.send('screenshot-captured', base64Image)
   } catch (err) {
     console.error('[crop-result] error:', err)
+    lastScreenshot = null
     mainWindow?.webContents.send('translate-error', (err as Error).message)
     mainWindow?.show()
   }
@@ -814,6 +838,9 @@ app.whenReady().then(() => {
   createWindow()
   createTray()
   registerShortcuts()
+  
+  // 预创建截图覆盖窗口以消除延迟
+  prepareScreenshotOverlay()
 
   // 生产环境启动后延迟检查更新
   if (!isDev) {
