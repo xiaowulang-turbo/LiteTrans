@@ -96,4 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendCropResult: (rect: { x: number; y: number; width: number; height: number } | null) => {
     ipcRenderer.send('crop-result', rect)
   },
+  getPlatform: (): string => {
+    return process.platform
+  },
 })

@@ -43,8 +43,78 @@ declare global {
       checkForUpdates: () => Promise<UpdateInfo>
       onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void
       openReleasesPage: () => void
+      getPlatform: () => string
     }
   }
+}
+
+// 平台特定的窗口控件组件
+interface WindowControlsProps {
+  platform: 'win32' | 'darwin' | 'linux'
+  onClose: () => void
+  onMinimize: () => void
+  onMaximize: () => void
+}
+
+function WindowControls({ platform, onClose, onMinimize, onMaximize }: WindowControlsProps) {
+  if (platform === 'darwin') {
+    // macOS 风格：圆形红黄绿按钮
+    return (
+      <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <button
+          onClick={onClose}
+          className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+        >
+          <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
+        </button>
+        <button
+          onClick={onMinimize}
+          className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
+        >
+          <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
+        </button>
+        <button
+          onClick={onMaximize}
+          className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
+        >
+          <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
+        </button>
+      </div>
+    )
+  }
+
+  // Windows/Linux 风格：方形图标按钮（右侧布局）
+  return (
+    <div className="flex gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      <button
+        onClick={onMinimize}
+        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group"
+        title="最小化"
+      >
+        <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="currentColor" viewBox="0 0 12 12">
+          <rect x="0" y="5" width="12" height="2" />
+        </svg>
+      </button>
+      <button
+        onClick={onMaximize}
+        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group"
+        title="最大化"
+      >
+        <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 12 12">
+          <rect x="2" y="2" width="8" height="8" />
+        </svg>
+      </button>
+      <button
+        onClick={onClose}
+        className="w-10 h-9 hover:bg-red-600 transition-colors flex items-center justify-center group"
+        title="关闭"
+      >
+        <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="currentColor" viewBox="0 0 12 12">
+          <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  )
 }
 
 function App() {
@@ -73,6 +143,7 @@ function App() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [updateChecking, setUpdateChecking] = useState(false)
   const [showUpdateToast, setShowUpdateToast] = useState(false)
+  const [platform, setPlatform] = useState<'win32' | 'darwin' | 'linux'>('win32')
   const targetLangRef = useRef(targetLang)
 
   useEffect(() => {
@@ -88,9 +159,10 @@ function App() {
   }, [authLoading, user, view])
 
   const handleGoToProfile = () => setView('profile')
-  const handleBackToMain = () => setView('main')
 
   useEffect(() => {
+    const detectedPlatform = window.electronAPI?.getPlatform?.() as 'win32' | 'darwin' | 'linux'
+    if (detectedPlatform) setPlatform(detectedPlatform)
     window.electronAPI?.getShortcut?.().then(setShortcut).catch(() => {})
     window.electronAPI?.getPresetShortcuts?.().then(setPresetShortcuts).catch(() => {})
     window.electronAPI?.getAlwaysOnTop?.('main').then(setIsPinned).catch(() => {})
@@ -122,7 +194,7 @@ function App() {
 
   // 翻译图片的核心函数
   const translateImage = async (base64Image: string, accessToken: string, toLang: string = targetLang) => {
-    setStatus('loading')
+    // 不在这里设置 loading 状态，因为调用方已经乐观地设置了
     setResult(null)
     setError('')
     
@@ -182,6 +254,9 @@ function App() {
     const imageToProcess = pendingImage
     setPendingImage(null)
     
+    // 乐观UI：立即显示"翻译中"状态
+    setStatus('loading')
+    
     // 先检查配额再翻译
     checkAndUseQuota().then(quotaResult => {
       if (!quotaResult.success) {
@@ -216,6 +291,9 @@ function App() {
         setError('请先登录后再翻译')
         return
       }
+
+      // 乐观UI：立即显示"翻译中"状态，提升用户体验
+      setStatus('loading')
 
       // 检查并扣减配额
       console.log('[onScreenshotCaptured] checking quota...')
@@ -366,35 +444,33 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <button
-              onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-            </button>
-            <button
-              onClick={handleMinimize}
-              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-            </button>
-            <button
-              onClick={handleMaximize}
-              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-            </button>
-          </div>
+          {platform === 'darwin' && (
+            <WindowControls
+              platform={platform}
+              onClose={handleClose}
+              onMinimize={handleMinimize}
+              onMaximize={handleMaximize}
+            />
+          )}
           <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-          <button
-            onClick={handleTogglePin}
-            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            title={isPinned ? '取消置顶' : '窗口置顶'}
-          >
-            📌
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleTogglePin}
+              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              title={isPinned ? '取消置顶' : '窗口置顶'}
+            >
+              📌
+            </button>
+            {platform !== 'darwin' && (
+              <WindowControls
+                platform={platform}
+                onClose={handleClose}
+                onMinimize={handleMinimize}
+                onMaximize={handleMaximize}
+              />
+            )}
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
@@ -466,26 +542,14 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <button
-              onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-            </button>
-            <button
-              onClick={handleMinimize}
-              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-            </button>
-            <button
-              onClick={handleMaximize}
-              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-            </button>
-          </div>
+          {platform === 'darwin' && (
+            <WindowControls
+              platform={platform}
+              onClose={handleClose}
+              onMinimize={handleMinimize}
+              onMaximize={handleMaximize}
+            />
+          )}
           <span className="text-white/80 text-sm font-medium">个人中心</span>
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
@@ -496,11 +560,25 @@ function App() {
               📌
             </button>
             <button
-              onClick={handleBackToMain}
+              onClick={handleLogout}
+              className="text-white/40 hover:text-white/60 text-xs"
+            >
+              退出登录
+            </button>
+            <button
+              onClick={() => setView('main')}
               className="text-white/50 hover:text-white/70 text-xs"
             >
               返回
             </button>
+            {platform !== 'darwin' && (
+              <WindowControls
+                platform={platform}
+                onClose={handleClose}
+                onMinimize={handleMinimize}
+                onMaximize={handleMaximize}
+              />
+            )}
           </div>
         </div>
 
@@ -622,26 +700,12 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <button
-              onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-            </button>
-            <button
-              onClick={handleMinimize}
-              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-            </button>
-            <button
-              onClick={handleMaximize}
-              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-            </button>
-          </div>
+          <WindowControls
+            platform={platform}
+            onClose={handleClose}
+            onMinimize={handleMinimize}
+            onMaximize={handleMaximize}
+          />
           <span className="text-white/80 text-sm font-medium">翻译历史</span>
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
@@ -724,26 +788,14 @@ function App() {
           className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <button
-              onClick={handleClose}
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-            </button>
-            <button
-              onClick={handleMinimize}
-              className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-            </button>
-            <button
-              onClick={handleMaximize}
-              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-            >
-              <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-            </button>
-          </div>
+          {platform === 'darwin' && (
+            <WindowControls
+              platform={platform}
+              onClose={handleClose}
+              onMinimize={handleMinimize}
+              onMaximize={handleMaximize}
+            />
+          )}
           <span className="text-white/80 text-sm font-medium">翻译详情</span>
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <button
@@ -759,6 +811,14 @@ function App() {
             >
               返回
             </button>
+            {platform !== 'darwin' && (
+              <WindowControls
+                platform={platform}
+                onClose={handleClose}
+                onMinimize={handleMinimize}
+                onMaximize={handleMaximize}
+              />
+            )}
           </div>
         </div>
 
@@ -869,63 +929,38 @@ function App() {
         className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={handleClose}
-            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-          >
-            <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-          </button>
-          <button
-            onClick={handleMinimize}
-            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-          >
-            <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-          </button>
-          <button
-            onClick={handleMaximize}
-            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-          >
-            <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-          </button>
-        </div>
+        {platform === 'darwin' && (
+          <WindowControls
+            platform={platform}
+            onClose={handleClose}
+            onMinimize={handleMinimize}
+            onMaximize={handleMaximize}
+          />
+        )}
         <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-        <button
-          onClick={handleTogglePin}
-          className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          title={isPinned ? '取消置顶' : '窗口置顶'}
-        >
-          📌
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleTogglePin}
+            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            title={isPinned ? '取消置顶' : '窗口置顶'}
+          >
+            📌
+          </button>
+          {platform !== 'darwin' && (
+            <WindowControls
+              platform={platform}
+              onClose={handleClose}
+              onMinimize={handleMinimize}
+              onMaximize={handleMaximize}
+            />
+          )}
+        </div>
       </div>
 
-      {/* 状态指示 */}
+      {/* 简化状态栏 - 只显示快捷键提示和配额 */}
       <div className="px-4 py-2 border-b border-glass-border flex items-center justify-between">
-        <div>
-          {status === 'idle' && (
-            <span className="text-white/60 text-xs">按 {shortcut.replace('CommandOrControl', 'Ctrl')} 截图翻译</span>
-          )}
-          {status === 'loading' && (
-            <span className="text-blue-400 text-xs flex items-center gap-2">
-              <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-              翻译中...
-            </span>
-          )}
-          {status === 'success' && (
-            <span className="text-green-400 text-xs">✓ 翻译完成</span>
-          )}
-          {status === 'error' && (
-            <span className="text-red-400 text-xs flex items-center gap-2">
-              ✗ {error}
-              {lastImage && session?.access_token && (
-                <button onClick={handleRetry} className="text-blue-400 hover:text-blue-300 underline">
-                  重试
-                </button>
-              )}
-            </span>
-          )}
-        </div>
+        <span className="text-white/60 text-xs">按 {shortcut.replace('CommandOrControl', 'Ctrl')} 截图翻译</span>
         <div className="flex items-center gap-2">
           {quota?.success && (
             <span className={`text-xs ${quotaExhausted ? 'text-red-400' : 'text-white/50'}`}>
@@ -941,9 +976,27 @@ function App() {
         </div>
       </div>
 
-      {/* 图片展示 */}
+      {/* 主内容区域 - 展示翻译结果或状态 */}
       <div className="flex-1 p-4 flex items-center justify-center min-h-[200px]">
-        {result?.image ? (
+        {status === 'loading' ? (
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <span className="text-blue-400 text-lg font-medium">翻译中...</span>
+          </div>
+        ) : status === 'error' ? (
+          <div className="flex flex-col items-center gap-3 max-w-[280px]">
+            <div className="text-red-400 text-4xl">✗</div>
+            <span className="text-red-400 text-base text-center">{error}</span>
+            {lastImage && session?.access_token && (
+              <button 
+                onClick={handleRetry} 
+                className="mt-2 px-6 py-2 rounded-full bg-blue-500/80 hover:bg-blue-500 text-white text-sm transition-colors"
+              >
+                重试翻译
+              </button>
+            )}
+          </div>
+        ) : result?.image ? (
           <img
             src={`data:image/png;base64,${result.image}`}
             alt="翻译结果"
