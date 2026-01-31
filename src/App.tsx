@@ -938,11 +938,10 @@ function App() {
           />
         )}
         <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={handleTogglePin}
             className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             title={isPinned ? '取消置顶' : '窗口置顶'}
           >
             📌
