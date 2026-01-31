@@ -88,8 +88,9 @@ function WindowControls({ platform, onClose, onMinimize, onMaximize }: WindowCon
     <div className="flex gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
       <button
         onClick={onMinimize}
-        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group"
+        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group outline-none"
         title="最小化"
+        tabIndex={-1}
       >
         <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="currentColor" viewBox="0 0 12 12">
           <rect x="0" y="5" width="12" height="2" />
@@ -97,8 +98,9 @@ function WindowControls({ platform, onClose, onMinimize, onMaximize }: WindowCon
       </button>
       <button
         onClick={onMaximize}
-        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group"
+        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group outline-none"
         title="最大化"
+        tabIndex={-1}
       >
         <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 12 12">
           <rect x="2" y="2" width="8" height="8" />
@@ -106,8 +108,9 @@ function WindowControls({ platform, onClose, onMinimize, onMaximize }: WindowCon
       </button>
       <button
         onClick={onClose}
-        className="w-10 h-9 hover:bg-red-600 transition-colors flex items-center justify-center group"
+        className="w-10 h-9 hover:bg-red-600 transition-colors flex items-center justify-center group outline-none"
         title="关闭"
+        tabIndex={-1}
       >
         <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="currentColor" viewBox="0 0 12 12">
           <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -941,8 +944,9 @@ function App() {
         <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={handleTogglePin}
-            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
+            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'} outline-none`}
             title={isPinned ? '取消置顶' : '窗口置顶'}
+            tabIndex={-1}
           >
             📌
           </button>
