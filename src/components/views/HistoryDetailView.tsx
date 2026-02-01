@@ -1,15 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslationStore } from '../../store/translationStore'
 import { useAppStore } from '../../store/appStore'
 import { WindowControls } from '../WindowControls'
+import { getTranslationImageUrl } from '../../lib/supabase'
 
 export function HistoryDetailView() {
-  const { selectedRecord, detailImageUrl } = useTranslationStore()
-  // Wait, openPreview is an electron API call, not in store?
-  // Store has `result` which is TranslateResult, but selectedRecord is TranslationRecord.
-  // We need to check store capabilities.
-  // `useTranslationStore` definition showed `detailImageUrl` state.
+  const { selectedRecord, detailImageUrl, setDetailImageUrl } = useTranslationStore()
   
+  useEffect(() => {
+    if (selectedRecord?.image_path) {
+      setDetailImageUrl(null)
+      getTranslationImageUrl(selectedRecord.image_path).then(url => {
+        setDetailImageUrl(url)
+      })
+    } else {
+      setDetailImageUrl(null)
+    }
+  }, [selectedRecord, setDetailImageUrl])
+
   const { platform, isPinned, togglePin, setView } = useAppStore()
   const [copied, setCopied] = useState(false)
 

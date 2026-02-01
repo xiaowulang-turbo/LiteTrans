@@ -59,12 +59,9 @@ export function HistoryView() {
       history={history} 
       loading={historyLoading}
       onSelect={(record: any) => {
-        // We need to set View to historyDetail AND set selected record.
-        // If I can't set selected record in store, I can't really pass it easily via App.
-        // So I should modify translationStore to hold `selectedRecord`.
-        // I will do that in a follow-up step to keep this atomic.
-        // For now, let's just scaffold the list view.
-        console.log('Select record', record)
+        const { setSelectedRecord } = useTranslationStore.getState()
+        setSelectedRecord(record)
+        setView('historyDetail')
       }}
       platform={platform}
       isPinned={isPinned}
