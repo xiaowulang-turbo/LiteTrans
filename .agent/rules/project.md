@@ -2,6 +2,8 @@
 trigger: always_on
 ---
 
+# 始终用中文回复！！！
+
 # Project Rules and Lessons Learned
 
 ## Authentication State Management
