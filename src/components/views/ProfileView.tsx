@@ -1,17 +1,15 @@
 import { useAuthStore } from '../../store/authStore'
 import { useAppStore } from '../../store/appStore'
-import { WindowControls } from '../WindowControls'
+
 
 export function ProfileView() {
   const { user, quota, signOut } = useAuthStore()
   const { 
-    platform, isPinned, shortcut, targetLang, presetShortcuts,
-    setView, togglePin, setShortcut, setTargetLang 
+    shortcut, targetLang, presetShortcuts,
+    setView, setShortcut, setTargetLang 
   } = useAppStore()
 
-  const handleClose = () => window.electronAPI?.closeWindow()
-  const handleMinimize = () => window.electronAPI?.minimizeWindow()
-  const handleMaximize = () => window.electronAPI?.maximizeWindow()
+
 
   const handleLogout = async () => {
     await signOut()
@@ -32,52 +30,10 @@ export function ProfileView() {
   }
 
   return (
-    <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-      <div
-        className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        {platform === 'darwin' && (
-          <WindowControls
-            platform={platform}
-            onClose={handleClose}
-            onMinimize={handleMinimize}
-            onMaximize={handleMaximize}
-          />
-        )}
-        <span className="text-white/80 text-sm font-medium">个人中心</span>
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={togglePin}
-            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-            title={isPinned ? '取消置顶' : '窗口置顶'}
-          >
-            📌
-          </button>
-          <button
-            onClick={handleLogout}
-            className="text-white/40 hover:text-white/60 text-xs"
-          >
-            退出登录
-          </button>
-          <button
-            onClick={() => setView('main')}
-            className="text-white/50 hover:text-white/70 text-xs"
-          >
-            返回
-          </button>
-          {platform !== 'darwin' && (
-            <WindowControls
-              platform={platform}
-              onClose={handleClose}
-              onMinimize={handleMinimize}
-              onMaximize={handleMaximize}
-            />
-          )}
-        </div>
-      </div>
+    <div className="w-full h-full flex flex-col items-center overflow-y-auto">
 
-      <div className="flex-1 flex flex-col items-center p-4 gap-3 overflow-y-auto">
+
+      <div className="w-full max-w-[400px] flex flex-col items-center p-6 gap-4">
         {avatarUrl ? (
           <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border-2 border-white/20" />
         ) : (

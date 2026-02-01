@@ -5,6 +5,7 @@ import { useAppStore } from './store/appStore'
 import { useTranslationStore } from './store/translationStore'
 import { LoginView } from './components/views/LoginView'
 import { MainView } from './components/views/MainView'
+import { AppLayout } from './components/layout/AppLayout'
 
 // Lazy load non-critical views
 const ProfileView = lazy(() => import('./components/views/ProfileView').then(module => ({ default: module.ProfileView })))
@@ -120,30 +121,24 @@ function App() {
   }
 
   return (
-    <>
-      <Suspense fallback={
-        <div className="flex items-center justify-center h-full w-full py-20">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-        </div>
-      }>
-        <div className="view-transition w-full h-full"> 
-          {view === 'login' && <LoginView />}
-          {view === 'main' && <MainView />}
-          {view === 'profile' && <ProfileView />}
-          {view === 'history' && <HistoryView />}
-          {view === 'historyDetail' && <HistoryDetailView />}
-        </div>
-      </Suspense>
-      
-      {/* Update Toast rendering is moved to MainView or a global Overlay component. 
-          Actually, let's keep it in MainView or specific views, or create a GlobalToast component.
-          In the original App.tsx, it was rendered overlaying everything.
-          To keep it simple, we can rely on stores to trigger it in views, or have it here.
-          But App.tsx is now cleaner. Let's assume MainView handles the update toast for now
-          as it's the primary view.
-          If update toast should appear anywhere, we should wrap children in a Layout.
-      */}
-    </>
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen w-screen bg-glass-bg backdrop-blur-glass">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+      </div>
+    }>
+      {view === 'login' ? (
+        <LoginView />
+      ) : (
+        <AppLayout>
+          <div className="w-full h-full view-transition relative">
+            {view === 'main' && <MainView />}
+            {view === 'profile' && <ProfileView />}
+            {view === 'history' && <HistoryView />}
+            {view === 'historyDetail' && <HistoryDetailView />}
+          </div>
+        </AppLayout>
+      )}
+    </Suspense>
   )
 }
 

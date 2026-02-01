@@ -1,7 +1,7 @@
 import { useTranslationStore } from '../../store/translationStore'
 import { useAuthStore } from '../../store/authStore'
 import { useAppStore } from '../../store/appStore'
-import { WindowControls } from '../WindowControls'
+
 
 export function MainView() {
   const { 
@@ -10,8 +10,8 @@ export function MainView() {
   
   const { user, quota } = useAuthStore()
   const { 
-    platform, isPinned, shortcut,
-    setView, togglePin 
+    shortcut,
+    setView 
   } = useAppStore()
 
   const handleCapture = () => {
@@ -36,45 +36,11 @@ export function MainView() {
     }
   }
 
-  const handleClose = () => window.electronAPI?.closeWindow()
-  const handleMinimize = () => window.electronAPI?.minimizeWindow()
-  const handleMaximize = () => window.electronAPI?.maximizeWindow()
+
 
   return (
-    <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col relative">
-      {/* 标题栏 */}
-      <div
-        className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        {platform === 'darwin' && (
-          <WindowControls
-            platform={platform}
-            onClose={handleClose}
-            onMinimize={handleMinimize}
-            onMaximize={handleMaximize}
-          />
-        )}
-        <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={togglePin}
-            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'} outline-none`}
-            title={isPinned ? '取消置顶' : '窗口置顶'}
-            tabIndex={-1}
-          >
-            📌
-          </button>
-          {platform !== 'darwin' && (
-            <WindowControls
-              platform={platform}
-              onClose={handleClose}
-              onMinimize={handleMinimize}
-              onMaximize={handleMaximize}
-            />
-          )}
-        </div>
-      </div>
+    <div className="h-full w-full flex flex-col relative">
+
 
       {/* 状态栏 */}
       <div className="px-4 py-2 border-b border-glass-border flex items-center justify-between">

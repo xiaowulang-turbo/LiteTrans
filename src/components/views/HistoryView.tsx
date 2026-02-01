@@ -1,59 +1,16 @@
 import { useEffect } from 'react'
 import { useTranslationStore } from '../../store/translationStore'
 import { useAppStore } from '../../store/appStore'
-import { WindowControls } from '../WindowControls'
+
 
 export function HistoryView() {
   const { history, historyLoading, loadHistory } = useTranslationStore()
-  const { platform, isPinned, togglePin, setView } = useAppStore()
-  
-  // Local state for detail view logic within HistoryView for now
-  // Or we can make HistoryDetailView separate.
-  // App.tsx had 'history' and 'historyDetail' as views.
-  // Let's implement 'historyDetail' handling inside here or as a sub-view.
-  // Since App state has 'historyDetail' view mode, we should probably stick to that?
-  // But wait, if HistoryView is just the list, then we need another component for Detail.
-  // Or we can handle it internally if we want to simplify the top-level routing.
-  // Let's check App.tsx again. It has 'historyDetail'. 
-  // For better component separation, let's keep HistoryView for the list, and maybe create HistoryDetailView?
-  // Or combine them if the navigation is strictly simple.
-  // App.tsx logic: setView('historyDetail')
-  
-  // Let's stick to the App structure: ViewMode includes 'historyDetail'.
-  // But wait, my plan didn't mention HistoryDetailView explicitly.
-  // I'll implement HistoryView to handle both or just the list, and assume App switches to it.
-  // But App.tsx manages views. So if 'historyDetail' is a top level view, I need a component for it.
-  // Let's simplify: HistoryView can handle the list. I'll make HistoryDetailView too if needed.
-  // Actually, combining them in one file `HistoryView.tsx` might be cleaner if they share state (selectedRecord).
-  // But `selectedRecord` was in App state (useState).
-  // I should probably add `selectedRecord` to `translationStore`?
-  // Yes, adding `selectedRecord` to translationStore makes sense.
-  
-  // Let's just create HistoryView and assume it might be used for detail too or handle list.
-  // Wait, I need to check translationStore. It might not have `selectedRecord`.
-  // Let's assume I strictly follow the plan: "HistoryView: 展示翻译历史列表".
-  // So I'll need a HistoryDetailView or handle it inside HistoryView.
-  // Let's check `translationStore.ts` content first? No, I recall creating it.
-  // I'll invoke `loadHistory` on mount.
+  const { setView } = useAppStore()
   
   useEffect(() => {
     loadHistory()
-  }, [])
+  }, [loadHistory])
 
-  const handleClose = () => window.electronAPI?.closeWindow()
-  const handleMinimize = () => window.electronAPI?.minimizeWindow()
-  const handleMaximize = () => window.electronAPI?.maximizeWindow()
-
-  // We need to navigate to detail.
-  // Let's use internal state for now if we don't want to change AppStore view modes too much
-  // OR we add setSelectedRecord to translationStore.
-  
-  // For now, I'll put the List and Detail in this file, and export HistoryView. 
-  // But App.tsx controls the view. 
-  // Let's make HistoryView handle 'history' view.
-  // For 'historyDetail', I'll make a separate component HistoryDetailView and export it from here too?
-  // Or just export two components.
-  
   return (
     <HistoryList 
       history={history} 
@@ -63,85 +20,19 @@ export function HistoryView() {
         setSelectedRecord(record)
         setView('historyDetail')
       }}
-      platform={platform}
-      isPinned={isPinned}
-      onTogglePin={togglePin}
-      onBack={() => setView('profile')}
-      onClose={handleClose}
-      onMinimize={handleMinimize}
-      onMaximize={handleMaximize}
     />
   )
 }
 
-function HistoryList({ 
-  history, loading, onSelect, platform, isPinned, onTogglePin, onBack,
-  onClose, onMinimize, onMaximize 
-}: any) {
+function HistoryList({ history, loading, onSelect }: any) {
   return (
-    <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-      <div
-        className="h-9 relative flex items-center justify-between px-3 bg-black/20 cursor-move"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        {/* Left Section: Back button + macOS controls */}
-        <div className="flex items-center gap-2 min-w-[60px]" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          {platform === 'darwin' ? (
-             <div className="flex items-center gap-2">
-                <WindowControls
-                  platform={platform}
-                  onClose={onClose}
-                  onMinimize={onMinimize}
-                  onMaximize={onMaximize}
-                />
-                <button
-                  onClick={onBack}
-                  className="text-white/50 hover:text-white/70 text-xs ml-2"
-                >
-                  返回
-                </button>
-             </div>
-          ) : (
-            <button
-              onClick={onBack}
-              className="text-white/50 hover:text-white/70 text-xs flex items-center gap-1"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-              返回
-            </button>
-          )}
-        </div>
-
-        {/* Center Section: Title */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-          <span className="text-white/80 text-sm font-medium">翻译历史</span>
-        </div>
-
-        {/* Right Section: Pin + Windows/Linux controls */}
-        <div className="flex items-center gap-2 min-w-[60px] justify-end" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={onTogglePin}
-            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-            title={isPinned ? '取消置顶' : '窗口置顶'}
-          >
-            📌
-          </button>
-          {platform !== 'darwin' && (
-            <div className="pl-2 border-l border-white/10 ml-1">
-              <WindowControls
-                platform={platform}
-                onClose={onClose}
-                onMinimize={onMinimize}
-                onMaximize={onMaximize}
-              />
-            </div>
-          )}
-        </div>
+    <div className="h-full w-full flex flex-col p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-white/80 font-medium">翻译历史</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+
+      <div className="flex-1 overflow-y-auto pr-1">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <span className="text-white/60 text-sm flex items-center gap-2">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslationStore } from '../../store/translationStore'
 import { useAppStore } from '../../store/appStore'
-import { WindowControls } from '../WindowControls'
+
 import { getTranslationImageUrl } from '../../lib/supabase'
 
 export function HistoryDetailView() {
@@ -63,12 +63,10 @@ export function HistoryDetailView() {
     }
   }, [detailImageUrl])
 
-  const { platform, isPinned, togglePin, setView } = useAppStore()
+  const { setView } = useAppStore()
   const [copied, setCopied] = useState(false)
 
-  const handleClose = () => window.electronAPI?.closeWindow()
-  const handleMinimize = () => window.electronAPI?.minimizeWindow()
-  const handleMaximize = () => window.electronAPI?.maximizeWindow()
+
 
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -87,69 +85,22 @@ export function HistoryDetailView() {
   if (!selectedRecord) return null
 
   return (
-    <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-      <div
-        className="h-9 relative flex items-center justify-between px-3 bg-black/20 cursor-move"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        {/* Left Section: Back button + macOS controls */}
-        <div className="flex items-center gap-2 min-w-[60px]" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          {platform === 'darwin' ? (
-            <div className="flex items-center gap-2">
-              <WindowControls
-                platform={platform}
-                onClose={handleClose}
-                onMinimize={handleMinimize}
-                onMaximize={handleMaximize}
-              />
-              <button
-                onClick={() => setView('history')}
-                className="text-white/50 hover:text-white/70 text-xs ml-2"
-              >
-                返回
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setView('history')}
-              className="text-white/50 hover:text-white/70 text-xs flex items-center gap-1"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-              返回
-            </button>
-          )}
-        </div>
-
-        {/* Center Section: Title */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-          <span className="text-white/80 text-sm font-medium">翻译详情</span>
-        </div>
-
-        {/* Right Section: Pin + Windows/Linux controls */}
-        <div className="flex items-center gap-2 min-w-[60px] justify-end" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={togglePin}
-            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-            title={isPinned ? '取消置顶' : '窗口置顶'}
-          >
-            📌
-          </button>
-          {platform !== 'darwin' && (
-            <div className="pl-2 border-l border-white/10 ml-1">
-              <WindowControls
-                platform={platform}
-                onClose={handleClose}
-                onMinimize={handleMinimize}
-                onMaximize={handleMaximize}
-              />
-            </div>
-          )}
-        </div>
+    <div className="h-full w-full flex flex-col p-4">
+      <div className="flex items-center mb-4">
+        <button
+          onClick={() => setView('history')}
+          className="text-white/50 hover:text-white/80 flex items-center gap-1 text-sm bg-white/5 px-2 py-1 rounded"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          返回列表
+        </button>
+        <span className="ml-4 text-white/80 font-medium">翻译详情</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+      <div className="flex-1 min-h-0 space-y-4 overflow-hidden">
         <div className="flex items-center justify-between text-xs">
           <span className="text-white/40">
             {new Date(selectedRecord.created_at).toLocaleString('zh-CN')}
@@ -163,7 +114,7 @@ export function HistoryDetailView() {
         {selectedRecord.image_path && (
           <div className="space-y-2">
             <span className="text-white/50 text-xs">翻译图片</span>
-            <div className="relative min-h-[128px] rounded-lg bg-white/5 flex items-center justify-center overflow-hidden">
+            <div className="relative max-h-[40vh] rounded-lg bg-white/5 flex items-center justify-center overflow-hidden">
               {(!detailImageUrl || imageLoading) && (
                 <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/5">
                   <span className="text-white/40 text-xs flex items-center gap-2">
