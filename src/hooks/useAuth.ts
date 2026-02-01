@@ -1,60 +1,37 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase, getUserQuota, QuotaInfo } from '../lib/supabase'
-
-export interface AuthState {
-  user: User | null
-  session: Session | null
-  loading: boolean
-  quota: QuotaInfo | null
-}
+import { useEffect, useCallback } from 'react'
+import { supabase, getUserQuota } from '../lib/supabase'
+import { useAuthStore } from '../store/authStore'
 
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    session: null,
-    loading: true,
-    quota: null,
-  })
-
-  const userRef = useRef<User | null>(null)
-  userRef.current = state.user
+  const { user, session, loading, quota, setUser, setSession, setLoading, setQuota, reset } = useAuthStore()
 
   const refreshQuota = useCallback(async () => {
-    if (!userRef.current) return
-    const quota = await getUserQuota()
-    setState(prev => ({ ...prev, quota }))
-  }, [])
+    if (!user) return
+    const quotaData = await getUserQuota()
+    setQuota(quotaData)
+  }, [user, setQuota])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setState(prev => ({
-        ...prev,
-        session,
-        user: session?.user ?? null,
-        loading: false,
-      }))
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        const user = session?.user ?? null
-        setState(prev => ({
-          ...prev,
-          session,
-          user,
-          loading: false,
-        }))
+        const currentUser = session?.user ?? null
+        setSession(session)
+        setUser(currentUser)
+        setLoading(false)
 
-        // 不在 onAuthStateChange 中调用异步 API，避免死锁
-        // 使用 setTimeout 延迟执行，跳出 onAuthStateChange 上下文
-        if (user) {
+        if (currentUser) {
           setTimeout(async () => {
-            const quota = await getUserQuota()
-            setState(prev => ({ ...prev, quota }))
+            const quotaData = await getUserQuota()
+            setQuota(quotaData)
           }, 0)
         } else {
-          setState(prev => ({ ...prev, quota: null }))
+          setQuota(null)
         }
       }
     )
@@ -71,22 +48,16 @@ export function useAuth() {
         const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         console.log('[useAuth] setSession result:', { user: !!data?.user, session: !!data?.session, error })
         
-        // 验证 session 是否被正确存储
         const sbKeys = Object.keys(localStorage).filter(k => k.startsWith('sb-'))
         console.log('[useAuth] localStorage after setSession:', sbKeys)
         
-        // setSession 成功后手动更新状态
         if (data?.session && data?.user) {
-          setState(prev => ({
-            ...prev,
-            session: data.session,
-            user: data.user,
-            loading: false,
-          }))
-          // 延迟获取 quota，避免死锁
+          setSession(data.session)
+          setUser(data.user)
+          setLoading(false)
           setTimeout(async () => {
-            const quota = await getUserQuota()
-            setState(prev => ({ ...prev, quota }))
+            const quotaData = await getUserQuota()
+            setQuota(quotaData)
           }, 0)
         }
       }
@@ -98,7 +69,7 @@ export function useAuth() {
     }
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [setUser, setSession, setLoading, setQuota])
 
   const signInWithEmail = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -113,25 +84,16 @@ export function useAuth() {
       email,
       password,
     })
-    // Supabase 重复注册不返回 error，而是返回空 identities
-    // 检测 user 存在但 identities 为空 = 已注册用户
     const isExistingUser = data?.user && (!data.user.identities || data.user.identities.length === 0)
     return { data, error, isExistingUser }
   }
 
   const signOut = async () => {
-    // 清除所有 Supabase 相关的 localStorage
     const keysToRemove = Object.keys(localStorage).filter(key => key.startsWith('sb-'))
     console.log('[signOut] removing localStorage keys:', keysToRemove)
     keysToRemove.forEach(key => localStorage.removeItem(key))
     
-    // 清除 React 状态
-    setState({
-      user: null,
-      session: null,
-      loading: false,
-      quota: null,
-    })
+    reset()
     
     return { error: null }
   }
@@ -153,7 +115,10 @@ export function useAuth() {
   }
 
   return {
-    ...state,
+    user,
+    session,
+    loading,
+    quota,
     signInWithEmail,
     signUpWithEmail,
     signOut,
