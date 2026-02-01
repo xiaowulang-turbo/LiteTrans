@@ -35,9 +35,23 @@
 4. 点击 "Add secret"
 5. 重复以上步骤添加所有 3 个 secrets
 
+### 3. 本地环境配置 (.env)
+
+如果你需要在本地执行发布脚本 (不推荐，建议使用 Action)，需要在项目根目录的 `.env` 文件中配置:
+
+```bash
+# 用于 publish:release 脚本
+GH_TOKEN=your_pat_token_here
+```
+
+> [!NOTE]
+> `GH_TOKEN` 的值可以使用之前创建的 PAT。
+
 ## 使用方法
 
-### 发布新版本
+### 1. 自动发布 (推荐)
+
+这是最推荐的方式，通过推送 Tag 触发 GitHub Actions。
 
 ```bash
 # 1. 确保代码已提交
@@ -57,6 +71,18 @@ git push --tags
 
 # 4. 等待 GitHub Actions 自动完成 (约 10-20 分钟)
 ```
+
+### 2. 本地手动发布 (备选)
+
+在特殊情况下（如 Action 挂掉），可以在本地直接发布：
+
+```bash
+# 确保已配置 .env 中的 GH_TOKEN
+pnpm run publish:release
+```
+
+> [!WARNING]
+> 本地发布不会自动向仓库推送 Git Tag，建议发布成功后手动补上 Tag。
 
 ### 发布 Beta 版本
 
@@ -103,6 +129,13 @@ Beta 版本会自动标记为 "Pre-release"。
 | `Bad credentials` | Token 无效或过期 | 重新生成 PAT 并更新 Secret |
 | `Supabase upload failed` | Supabase 配置错误 | 检查 `SUPABASE_URL` 和 `SUPABASE_SERVICE_ROLE_KEY` |
 | `Build failed` | 代码构建错误 | 本地运行 `pnpm run electron:build` 测试 |
+| `dotenv missing` | 脚本缺少依赖 | 确保已安装并配置 `dotenv` (已修复) |
+| `Action not triggered` | 未推送 Tag | 必须推送符合 `v*.*.*` 格式的 Tag 才能触发 |
+
+### 常见陷阱
+
+1. **版本已存在**: 如果 GitHub 上已经存在同版本的 Release，`electron-builder` 会跳过上传。请确保每次发布都提升版本号。
+2. **PAT 权限**: PAT 至少需要 `repo` 权限。如果涉及删除包，可能还需要 `delete_repo` 或相关权限。
 
 ### 删除错误的 Release
 
