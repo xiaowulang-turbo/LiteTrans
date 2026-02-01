@@ -59,7 +59,7 @@ export function createPreviewWindow(base64: string) {
     },
   })
 
-  const previewHtml = getPreviewWindowHtml()
+    const previewHtml = getPreviewWindowHtml(process.platform)
   previewWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(previewHtml))
 
   previewWindow.on('closed', () => {
@@ -74,7 +74,30 @@ export function createPreviewWindow(base64: string) {
   return previewWindow
 }
 
-function getPreviewWindowHtml(): string {
+function getPreviewWindowHtml(platform: string): string {
+  const isMac = platform === 'darwin'
+  const windowsControls = `
+    <div class="windows-controls">
+      <button class="win-btn win-minimize" id="minimize-btn" title="最小化">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0,5 L10,5 M0,6 L10,6" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+      <button class="win-btn win-maximize" id="maximize-btn" title="最大化">
+        <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" stroke="currentColor" stroke-width="1" fill="none"/></svg>
+      </button>
+      <button class="win-btn win-close" onclick="window.close()" title="关闭">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0,0 L10,10 M10,0 L0,10" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+    </div>
+  `
+
+  const macControls = `
+    <div class="mac-controls">
+      <button class="traffic-btn close-btn" onclick="window.close()" title="关闭"><span>×</span></button>
+      <button class="traffic-btn minimize-btn" id="minimize-btn" title="最小化"><span>−</span></button>
+      <button class="traffic-btn maximize-btn" id="maximize-btn" title="最大化"><span>+</span></button>
+    </div>
+  `
+
   return `
     <!DOCTYPE html>
     <html>
@@ -86,6 +109,7 @@ function getPreviewWindowHtml(): string {
           width: 100%; height: 100%; 
           background: rgba(0,0,0,0.95);
           overflow: hidden;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
         .container {
           width: 100%; height: 100%;
@@ -95,23 +119,32 @@ function getPreviewWindowHtml(): string {
           height: 32px; 
           background: rgba(0,0,0,0.5);
           display: flex; align-items: center; justify-content: space-between;
-          padding: 0 12px;
+          padding: 0 ${isMac ? '12px' : '0'};
           -webkit-app-region: drag;
+          position: relative;
         }
-        .header span { color: rgba(255,255,255,0.6); font-size: 12px; }
-        .header button {
-          -webkit-app-region: no-drag;
-          border: none; cursor: pointer;
+        .title-container {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
         }
+        .header span { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 500;}
+        
         .header-left {
           display: flex; align-items: center; gap: 8px;
           -webkit-app-region: no-drag;
+          min-width: 60px;
         }
+        /* MacOS Controls */
+        .mac-controls { display: flex; gap: 8px; }
         .traffic-btn {
           width: 12px; height: 12px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
           font-size: 8px; color: rgba(0,0,0,0.6);
           transition: all 0.2s;
+          border: none; cursor: pointer;
         }
         .traffic-btn span { opacity: 0; font-weight: bold; }
         .traffic-btn:hover span { opacity: 1; }
@@ -121,18 +154,37 @@ function getPreviewWindowHtml(): string {
         .minimize-btn:hover { background: #fec84a; }
         .maximize-btn { background: #28c840; }
         .maximize-btn:hover { background: #3dd656; }
+
         .header-right {
-          display: flex; align-items: center; gap: 8px;
+          display: flex; align-items: center;
           -webkit-app-region: no-drag;
+          min-width: 60px;
+          justify-content: flex-end;
+          height: 100%;
         }
         .pin-btn {
-          width: auto; height: auto; border-radius: 0;
+          width: 40px; height: 100%; border-radius: 0;
           background: transparent; font-size: 12px;
           cursor: pointer; transition: all 0.2s;
+          border: none;
+          display: flex; align-items: center; justify-content: center;
         }
         .pin-btn.active { filter: none; }
         .pin-btn.inactive { filter: grayscale(1); opacity: 0.5; }
-        .pin-btn:hover { opacity: 1; }
+        .pin-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+        
+        /* Windows Controls */
+        .windows-controls { display: flex; height: 100%; }
+        .win-btn {
+          width: 46px; height: 100%;
+          background: transparent; color: rgba(255,255,255,0.7);
+          border: none; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: background-color 0.2s;
+        }
+        .win-btn:hover { background-color: rgba(255,255,255,0.1); color: white; }
+        .win-close:hover { background-color: #e81123; color: white; }
+        
         .image-area {
           flex: 1; overflow: auto; padding: 16px;
           display: flex; align-items: flex-start; justify-content: center;
@@ -155,13 +207,14 @@ function getPreviewWindowHtml(): string {
       <div class="container">
         <div class="header">
           <div class="header-left">
-            <button class="traffic-btn close-btn" onclick="window.close()" title="关闭"><span>×</span></button>
-            <button class="traffic-btn minimize-btn" id="minimize-btn" title="最小化"><span>−</span></button>
-            <button class="traffic-btn maximize-btn" id="maximize-btn" title="最大化"><span>+</span></button>
+            ${isMac ? macControls : ''}
           </div>
-          <span>图片预览 (ESC 关闭)</span>
+          <div class="title-container">
+            <span>图片预览 (ESC 关闭)</span>
+          </div>
           <div class="header-right">
             <button class="pin-btn inactive" id="pin-btn" title="窗口置顶">📌</button>
+            ${!isMac ? windowsControls : ''}
           </div>
         </div>
         <div class="image-area">

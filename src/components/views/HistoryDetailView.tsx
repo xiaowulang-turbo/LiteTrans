@@ -10,10 +10,48 @@ export function HistoryDetailView() {
   
   useEffect(() => {
     if (selectedRecord?.image_path) {
-      setDetailImageUrl(null)
-      getTranslationImageUrl(selectedRecord.image_path).then(url => {
-        setDetailImageUrl(url)
-      })
+      setDetailImageUrl(null) // Clear previous image immediately
+      
+      const load = async () => {
+        try {
+          const path = selectedRecord.image_path!
+          
+          // 1. Try local cache first
+          if (window.electronAPI?.getCachedImage) {
+            const cached = await window.electronAPI.getCachedImage(path)
+            if (cached) {
+              console.log('Loaded from cache')
+              setDetailImageUrl(`data:image/png;base64,${cached}`)
+              return
+            }
+          }
+
+          // 2. Fetch signed URL
+          const url = await getTranslationImageUrl(path)
+          if (!url) {
+            console.error('Failed to get info for image')
+            return
+          }
+
+          // 3. Download and cache (if Electron available)
+          if (window.electronAPI?.saveImageToCache) {
+            const savedBase64 = await window.electronAPI.saveImageToCache(url, path)
+            if (savedBase64) {
+              console.log('Downloaded and cached')
+              setDetailImageUrl(`data:image/png;base64,${savedBase64}`)
+              return
+            }
+          }
+
+          // 4. Fallback to URL
+          console.log('Fallback to URL')
+          setDetailImageUrl(url)
+        } catch (e) {
+          console.error('Failed to load image:', e)
+        }
+      }
+      
+      load()
     } else {
       setDetailImageUrl(null)
     }
@@ -51,19 +89,46 @@ export function HistoryDetailView() {
   return (
     <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
       <div
-        className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
+        className="h-9 relative flex items-center justify-between px-3 bg-black/20 cursor-move"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        {platform === 'darwin' && (
-          <WindowControls
-            platform={platform}
-            onClose={handleClose}
-            onMinimize={handleMinimize}
-            onMaximize={handleMaximize}
-          />
-        )}
-        <span className="text-white/80 text-sm font-medium">翻译详情</span>
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {/* Left Section: Back button + macOS controls */}
+        <div className="flex items-center gap-2 min-w-[60px]" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          {platform === 'darwin' ? (
+            <div className="flex items-center gap-2">
+              <WindowControls
+                platform={platform}
+                onClose={handleClose}
+                onMinimize={handleMinimize}
+                onMaximize={handleMaximize}
+              />
+              <button
+                onClick={() => setView('history')}
+                className="text-white/50 hover:text-white/70 text-xs ml-2"
+              >
+                返回
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setView('history')}
+              className="text-white/50 hover:text-white/70 text-xs flex items-center gap-1"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+              返回
+            </button>
+          )}
+        </div>
+
+        {/* Center Section: Title */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+          <span className="text-white/80 text-sm font-medium">翻译详情</span>
+        </div>
+
+        {/* Right Section: Pin + Windows/Linux controls */}
+        <div className="flex items-center gap-2 min-w-[60px] justify-end" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={togglePin}
             className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
@@ -71,19 +136,15 @@ export function HistoryDetailView() {
           >
             📌
           </button>
-          <button
-            onClick={() => setView('history')}
-            className="text-white/50 hover:text-white/70 text-xs"
-          >
-            返回
-          </button>
           {platform !== 'darwin' && (
-            <WindowControls
-              platform={platform}
-              onClose={handleClose}
-              onMinimize={handleMinimize}
-              onMaximize={handleMaximize}
-            />
+            <div className="pl-2 border-l border-white/10 ml-1">
+              <WindowControls
+                platform={platform}
+                onClose={handleClose}
+                onMinimize={handleMinimize}
+                onMaximize={handleMaximize}
+              />
+            </div>
           )}
         </div>
       </div>

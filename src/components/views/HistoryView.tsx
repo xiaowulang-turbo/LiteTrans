@@ -81,17 +81,46 @@ function HistoryList({
   return (
     <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
       <div
-        className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
+        className="h-9 relative flex items-center justify-between px-3 bg-black/20 cursor-move"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <WindowControls
-          platform={platform}
-          onClose={onClose}
-          onMinimize={onMinimize}
-          onMaximize={onMaximize}
-        />
-        <span className="text-white/80 text-sm font-medium">翻译历史</span>
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {/* Left Section: Back button + macOS controls */}
+        <div className="flex items-center gap-2 min-w-[60px]" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          {platform === 'darwin' ? (
+             <div className="flex items-center gap-2">
+                <WindowControls
+                  platform={platform}
+                  onClose={onClose}
+                  onMinimize={onMinimize}
+                  onMaximize={onMaximize}
+                />
+                <button
+                  onClick={onBack}
+                  className="text-white/50 hover:text-white/70 text-xs ml-2"
+                >
+                  返回
+                </button>
+             </div>
+          ) : (
+            <button
+              onClick={onBack}
+              className="text-white/50 hover:text-white/70 text-xs flex items-center gap-1"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+              返回
+            </button>
+          )}
+        </div>
+
+        {/* Center Section: Title */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+          <span className="text-white/80 text-sm font-medium">翻译历史</span>
+        </div>
+
+        {/* Right Section: Pin + Windows/Linux controls */}
+        <div className="flex items-center gap-2 min-w-[60px] justify-end" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={onTogglePin}
             className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
@@ -99,12 +128,16 @@ function HistoryList({
           >
             📌
           </button>
-          <button
-            onClick={onBack}
-            className="text-white/50 hover:text-white/70 text-xs"
-          >
-            返回
-          </button>
+          {platform !== 'darwin' && (
+            <div className="pl-2 border-l border-white/10 ml-1">
+              <WindowControls
+                platform={platform}
+                onClose={onClose}
+                onMinimize={onMinimize}
+                onMaximize={onMaximize}
+              />
+            </div>
+          )}
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import { captureScreen, setupScreenshotIPC } from './modules/screenshot'
 import { registerShortcuts, updateShortcut, getCurrentShortcut, PRESET_SHORTCUTS, unregisterAllShortcuts } from './modules/shortcut'
 import { createTray } from './modules/tray'
 import { checkForUpdates } from './modules/update'
+import { getCachedImage, saveImageToCache } from './modules/cache'
 
 const isDev = !app.isPackaged
 const PROTOCOL_NAME = 'litetrans'
@@ -116,12 +117,10 @@ function setupIPC() {
   })
 
   ipcMain.handle('get-cached-image', (_event, storagePath: string) => {
-    const { getCachedImage } = require('./modules/cache')
     return getCachedImage(storagePath)
   })
 
   ipcMain.handle('save-image-to-cache', (_event, url: string, storagePath: string) => {
-    const { saveImageToCache } = require('./modules/cache')
     return saveImageToCache(url, storagePath)
   })
 }
