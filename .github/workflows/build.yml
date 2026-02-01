@@ -1,0 +1,45 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build & Release
+        env:
+          # GitHub Actions automatically provides this token
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pnpm run build
+          # electron-builder requires 'GH_TOKEN' to publish to GitHub Releases
+          # '--publish always' forces publish even if not a tag (though we only run ON tags here)
+          # We use npx to run electron-builder from node_modules
+          npx electron-builder --publish always
+
+      # Note: For real Mac signing, you would need to set CSC_LINK and CSC_KEY_PASSWORD secrets
+      # and configure them in env. For now, this will build unsigned/locally signed apps.
