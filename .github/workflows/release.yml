@@ -93,18 +93,40 @@ jobs:
             const path = require('path');
             const version = '${{ steps.version.outputs.VERSION }}';
             
-            // Create release in the release repository
-            const release = await github.rest.repos.createRelease({
-              owner: 'xiaowulang-turbo',
-              repo: 'LiteTrans-Releases',
-              tag_name: `v${version}`,
-              name: `LiteTrans v${version}`,
-              body: `Release v${version}\n\nBuilt from commit: ${context.sha}`,
-              draft: false,
-              prerelease: version.includes('beta') || version.includes('alpha')
-            });
-            
-            console.log(`Created release: ${release.data.html_url}`);
+            let release;
+            try {
+              // Try to get existing release
+              release = await github.rest.repos.getReleaseByTag({
+                owner: 'xiaowulang-turbo',
+                repo: 'LiteTrans-Releases',
+                tag: `v${version}`
+              });
+              console.log(`Found existing release: ${release.data.html_url}`);
+              
+              // Update existing release (optional, to sync body/name)
+              await github.rest.repos.updateRelease({
+                owner: 'xiaowulang-turbo',
+                repo: 'LiteTrans-Releases',
+                release_id: release.data.id,
+                body: `Release v${version}\n\nBuilt from commit: ${context.sha}`,
+              });
+            } catch (e) {
+              if (e.status === 404) {
+                // Create release in the release repository
+                release = await github.rest.repos.createRelease({
+                  owner: 'xiaowulang-turbo',
+                  repo: 'LiteTrans-Releases',
+                  tag_name: `v${version}`,
+                  name: `LiteTrans v${version}`,
+                  body: `Release v${version}\n\nBuilt from commit: ${context.sha}`,
+                  draft: false,
+                  prerelease: version.includes('beta') || version.includes('alpha')
+                });
+                console.log(`Created new release: ${release.data.html_url}`);
+              } else {
+                throw e;
+              }
+            }
             
             // Upload all artifacts to the release
             const artifactsDir = 'artifacts';
