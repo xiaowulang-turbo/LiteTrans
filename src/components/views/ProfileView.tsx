@@ -103,13 +103,6 @@ export function ProfileView() {
               <option value="kor">한국어</option>
             </select>
           </div>
-          
-          <button
-            onClick={() => setView('history')}
-            className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
-          >
-            翻译历史 →
-          </button>
           <button
             onClick={handleLogout}
             className="w-full py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm transition-colors"
