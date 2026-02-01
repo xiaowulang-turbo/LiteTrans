@@ -99,4 +99,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatform: (): string => {
     return process.platform
   },
+  getCachedImage: (storagePath: string): Promise<string | null> => {
+    return ipcRenderer.invoke('get-cached-image', storagePath)
+  },
+  saveImageToCache: (url: string, storagePath: string): Promise<string | null> => {
+    return ipcRenderer.invoke('save-image-to-cache', url, storagePath)
+  },
 })

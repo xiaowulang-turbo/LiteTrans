@@ -24,6 +24,8 @@ declare global {
       onUpdateAvailable: (callback: (info: any) => void) => void
       openReleasesPage: () => void
       getPlatform: () => string
+      getCachedImage: (storagePath: string) => Promise<string | null>
+      saveImageToCache: (url: string, storagePath: string) => Promise<string | null>
     }
   }
 }

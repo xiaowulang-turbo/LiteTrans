@@ -114,6 +114,16 @@ function setupIPC() {
   ipcMain.on('open-preview', (_event, base64: string) => {
     createPreviewWindow(base64)
   })
+
+  ipcMain.handle('get-cached-image', (_event, storagePath: string) => {
+    const { getCachedImage } = require('./modules/cache')
+    return getCachedImage(storagePath)
+  })
+
+  ipcMain.handle('save-image-to-cache', (_event, url: string, storagePath: string) => {
+    const { saveImageToCache } = require('./modules/cache')
+    return saveImageToCache(url, storagePath)
+  })
 }
 
 app.on('open-url', (_event, url) => {
