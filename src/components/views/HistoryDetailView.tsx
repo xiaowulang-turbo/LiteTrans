@@ -6,6 +6,7 @@ import { getTranslationImageUrl } from '../../lib/supabase'
 
 export function HistoryDetailView() {
   const { selectedRecord, detailImageUrl, setDetailImageUrl } = useTranslationStore()
+  const [imageLoading, setImageLoading] = useState(true)
   
   useEffect(() => {
     if (selectedRecord?.image_path) {
@@ -17,6 +18,12 @@ export function HistoryDetailView() {
       setDetailImageUrl(null)
     }
   }, [selectedRecord, setDetailImageUrl])
+
+  useEffect(() => {
+    if (detailImageUrl) {
+      setImageLoading(true)
+    }
+  }, [detailImageUrl])
 
   const { platform, isPinned, togglePin, setView } = useAppStore()
   const [copied, setCopied] = useState(false)
@@ -33,20 +40,9 @@ export function HistoryDetailView() {
 
   const handleOpenPreview = () => {
     if (detailImageUrl && window.electronAPI?.openPreview) {
-      window.electronAPI.openPreview(detailImageUrl.split(',')[1] || detailImageUrl) // Handle data:image/png;base64,... prefix if present or raw base64
-      // Actually detailImageUrl usually is a public URL from Supabase or base64?
-      // In App.tsx: const url = await getTranslationImageUrl(record.image_path)
-      // getTranslationImageUrl returns a signed URL usually.
-      // Electron openPreview expects base64?
-      // Let's check App.tsx: window.electronAPI.openPreview(imageData)
-      // And in App.tsx render: <img src={detailImageUrl} onClick={() => openPreview(detailImageUrl)}
-      // So detailImageUrl is passed to openPreview.
-      // If it's a URL, openPreview might need to handle it or we download it.
-      // But `openPreview` in main.ts takes base64.
-      // If detailImageUrl is a http URL, main.ts `createPreviewWindow` might fail if it expects base64 without checking.
-      // Let's assume for now we pass what we have. If it breaks, we fix main or here.
-      // Actually, looking at App.tsx lines 847: onClick={() => openPreview(detailImageUrl)}
-      // It seems it passes the URL directly.
+      // Pass the raw URL or base64. Ensure main process handles it.
+      // If it's a signed URL, main process might need to fetch it or just load it in BrowserWindow.
+      window.electronAPI.openPreview(detailImageUrl)
     }
   }
 
@@ -106,22 +102,26 @@ export function HistoryDetailView() {
         {selectedRecord.image_path && (
           <div className="space-y-2">
             <span className="text-white/50 text-xs">翻译图片</span>
-            {detailImageUrl ? (
-              <img
-                src={detailImageUrl}
-                alt="翻译结果"
-                className="w-full rounded-lg object-contain bg-white/5 cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={handleOpenPreview}
-                title="点击放大"
-              />
-            ) : (
-              <div className="h-32 rounded-lg bg-white/5 flex items-center justify-center">
-                <span className="text-white/40 text-xs flex items-center gap-2">
-                  <span className="w-3 h-3 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
-                  加载图片...
-                </span>
-              </div>
-            )}
+            <div className="relative min-h-[128px] rounded-lg bg-white/5 flex items-center justify-center overflow-hidden">
+              {(!detailImageUrl || imageLoading) && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/5">
+                  <span className="text-white/40 text-xs flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+                    加载图片...
+                  </span>
+                </div>
+              )}
+              {detailImageUrl && (
+                <img
+                  src={detailImageUrl}
+                  alt="翻译结果"
+                  className={`w-full rounded-lg object-contain cursor-pointer hover:opacity-90 transition-all duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
+                  onClick={handleOpenPreview}
+                  onLoad={() => setImageLoading(false)}
+                  title="点击放大"
+                />
+              )}
+            </div>
           </div>
         )}
 
