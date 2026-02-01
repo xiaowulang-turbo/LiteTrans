@@ -24,7 +24,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 })
 
 const BUCKET_NAME = 'releases'
-const RELEASE_DIR = path.resolve(process.cwd(), 'release')
+const RELEASE_DIR = path.resolve(process.cwd(), 'release_v1')
 
 // 获取当前版本号
 const packageJson = JSON.parse(

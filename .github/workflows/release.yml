@@ -1,0 +1,174 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.0.0
+      
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build application
+        run: pnpm run build
+      
+      - name: Build Electron app
+        run: pnpm run electron:build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}
+          path: |
+            release_v1/*.exe
+            release_v1/*.dmg
+            release_v1/*.zip
+            release_v1/*.yml
+            !release_v1/builder-debug*.yml
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Create Release in Release Repository
+        uses: actions/github-script@v7
+        env:
+          RELEASE_REPO_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        with:
+          github-token: ${{ secrets.RELEASE_REPO_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const version = '${{ steps.version.outputs.VERSION }}';
+            
+            // Create release in the release repository
+            const release = await github.rest.repos.createRelease({
+              owner: 'xiaowulang-turbo',
+              repo: 'LiteTrans-Releases',
+              tag_name: `v${version}`,
+              name: `LiteTrans v${version}`,
+              body: `Release v${version}\n\nBuilt from commit: ${context.sha}`,
+              draft: false,
+              prerelease: version.includes('beta') || version.includes('alpha')
+            });
+            
+            console.log(`Created release: ${release.data.html_url}`);
+            
+            // Upload all artifacts to the release
+            const artifactsDir = 'artifacts';
+            const platforms = ['Windows', 'macOS'];
+            
+            for (const platform of platforms) {
+              const platformDir = path.join(artifactsDir, `release-${platform}`);
+              if (!fs.existsSync(platformDir)) continue;
+              
+              const files = fs.readdirSync(platformDir);
+              for (const file of files) {
+                const filePath = path.join(platformDir, file);
+                const stats = fs.statSync(filePath);
+                
+                if (stats.isFile()) {
+                  console.log(`Uploading ${file}...`);
+                  
+                  const fileContent = fs.readFileSync(filePath);
+                  await github.rest.repos.uploadReleaseAsset({
+                    owner: 'xiaowulang-turbo',
+                    repo: 'LiteTrans-Releases',
+                    release_id: release.data.id,
+                    name: file,
+                    data: fileContent
+                  });
+                  
+                  console.log(`Uploaded ${file}`);
+                }
+              }
+            }
+
+  upload-supabase:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.0.0
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Prepare release directory
+        run: |
+          mkdir -p release_v1
+          cp -r artifacts/release-Windows/* release_v1/ 2>/dev/null || true
+          cp -r artifacts/release-macOS/* release_v1/ 2>/dev/null || true
+          ls -la release_v1/
+      
+      - name: Upload to Supabase Storage
+        run: pnpm run upload:release
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
