@@ -1,6 +1,6 @@
 {
 	"name": "litetrans",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "截图即译 - 基于百度图片翻译 API 的轻量级翻译工具",
 	"main": "./out/main/index.js",
 	"packageManager": "pnpm@9.0.0",
