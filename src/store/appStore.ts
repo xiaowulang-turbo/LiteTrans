@@ -17,6 +17,8 @@ interface AppState {
   setShortcut: (shortcut: string) => void
   setPresetShortcuts: (shortcuts: string[]) => void
   setTargetLang: (lang: 'zh' | 'en' | 'jp' | 'kor') => void
+  togglePin: () => Promise<void>
+  init: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -33,4 +35,30 @@ export const useAppStore = create<AppState>((set) => ({
   setShortcut: (shortcut) => set({ shortcut }),
   setPresetShortcuts: (presetShortcuts) => set({ presetShortcuts }),
   setTargetLang: (targetLang) => set({ targetLang }),
+  
+  togglePin: async () => {
+    if (!window.electronAPI?.toggleAlwaysOnTop) return
+    const newState = await window.electronAPI.toggleAlwaysOnTop('main')
+    set({ isPinned: newState })
+  },
+  
+  init: async () => {
+    if (!window.electronAPI) return
+    
+    const platform = (window.electronAPI.getPlatform?.() || 'win32') as Platform
+    set({ platform })
+    
+    try {
+      const shortcut = await window.electronAPI.getShortcut?.()
+      if (shortcut) set({ shortcut })
+      
+      const presetShortcuts = await window.electronAPI.getPresetShortcuts?.()
+      if (presetShortcuts) set({ presetShortcuts })
+      
+      const isPinned = await window.electronAPI.getAlwaysOnTop?.('main')
+      set({ isPinned: !!isPinned })
+    } catch (e) {
+      console.error('Failed to init app store:', e)
+    }
+  }
 }))

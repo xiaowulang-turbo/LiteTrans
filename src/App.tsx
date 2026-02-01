@@ -1,203 +1,47 @@
-import { useState, useEffect, useRef } from 'react'
-import { useAuth } from './hooks/useAuth'
-import { checkAndUseQuota, translateImageViaEdge, supabase, saveTranslation, getTranslationHistory, TranslationRecord, uploadTranslationImage, getTranslationImageUrl } from './lib/supabase'
-
-type AppStatus = 'idle' | 'loading' | 'success' | 'error'
-type ViewMode = 'main' | 'login' | 'profile' | 'history' | 'historyDetail'
-
-interface TranslateResult {
-  image: string
-  sumSrc?: string
-  sumDst?: string
-}
-
-interface UpdateInfo {
-  hasUpdate: boolean
-  currentVersion: string
-  latestVersion: string
-  releaseUrl: string
-  releaseNotes: string
-  publishedAt: string
-}
-
-declare global {
-  interface Window {
-    electronAPI: {
-      onScreenshotCaptured: (callback: (base64: string) => void) => void
-      onTranslateStart: (callback: () => void) => void
-      onTranslateResult: (callback: (result: TranslateResult) => void) => void
-      onTranslateError: (callback: (error: string) => void) => void
-      captureScreen: () => void
-      copyImage: (base64: string) => void
-      closeWindow: () => void
-      minimizeWindow: () => void
-      maximizeWindow: () => void
-      openExternal: (url: string) => void
-      onOAuthCallback: (callback: (url: string) => void) => void
-      getShortcut: () => Promise<string>
-      setShortcut: (shortcut: string) => Promise<{ success: boolean; shortcut: string }>
-      getPresetShortcuts: () => Promise<string[]>
-      openPreview: (base64: string) => void
-      toggleAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
-      getAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
-      checkForUpdates: () => Promise<UpdateInfo>
-      onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void
-      openReleasesPage: () => void
-      getPlatform: () => string
-    }
-  }
-}
-
-// 平台特定的窗口控件组件
-interface WindowControlsProps {
-  platform: 'win32' | 'darwin' | 'linux'
-  onClose: () => void
-  onMinimize: () => void
-  onMaximize: () => void
-}
-
-function WindowControls({ platform, onClose, onMinimize, onMaximize }: WindowControlsProps) {
-  if (platform === 'darwin') {
-    // macOS 风格：圆形红黄绿按钮
-    return (
-      <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <button
-          onClick={onClose}
-          className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
-        >
-          <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">×</span>
-        </button>
-        <button
-          onClick={onMinimize}
-          className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors flex items-center justify-center group"
-        >
-          <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">−</span>
-        </button>
-        <button
-          onClick={onMaximize}
-          className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors flex items-center justify-center group"
-        >
-          <span className="text-[8px] text-black/60 opacity-0 group-hover:opacity-100 font-bold leading-none">+</span>
-        </button>
-      </div>
-    )
-  }
-
-  // Windows/Linux 风格：方形图标按钮（右侧布局）
-  return (
-    <div className="flex gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-      <button
-        onClick={onMinimize}
-        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group outline-none"
-        title="最小化"
-        tabIndex={-1}
-      >
-        <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="currentColor" viewBox="0 0 12 12">
-          <rect x="0" y="5" width="12" height="2" />
-        </svg>
-      </button>
-      <button
-        onClick={onMaximize}
-        className="w-10 h-9 hover:bg-white/10 transition-colors flex items-center justify-center group outline-none"
-        title="最大化"
-        tabIndex={-1}
-      >
-        <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 12 12">
-          <rect x="2" y="2" width="8" height="8" />
-        </svg>
-      </button>
-      <button
-        onClick={onClose}
-        className="w-10 h-9 hover:bg-red-600 transition-colors flex items-center justify-center group outline-none"
-        title="关闭"
-        tabIndex={-1}
-      >
-        <svg className="w-3 h-3 text-white/70 group-hover:text-white" fill="currentColor" viewBox="0 0 12 12">
-          <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </button>
-    </div>
-  )
-}
+import { useEffect, useRef } from 'react'
+import { checkAndUseQuota, supabase, saveTranslation, uploadTranslationImage, translateImageViaEdge } from './lib/supabase'
+import { useAuthStore } from './store/authStore'
+import { useAppStore } from './store/appStore'
+import { useTranslationStore } from './store/translationStore'
+import { LoginView } from './components/views/LoginView'
+import { MainView } from './components/views/MainView'
+import { ProfileView } from './components/views/ProfileView'
+import { HistoryView } from './components/views/HistoryView'
+import { HistoryDetailView } from './components/views/HistoryDetailView'
 
 function App() {
-  const { user, session, loading: authLoading, quota, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, refreshQuota } = useAuth()
+  const { view, targetLang, init: initApp, setView } = useAppStore()
+  const { user, session, loading: authLoading, refreshQuota } = useAuthStore()
+  const { 
+    setResult, setStatus, setError, setLastImage, setPendingImage, 
+    setUpdateInfo, setShowUpdateToast 
+  } = useTranslationStore()
   
-  const [view, setView] = useState<ViewMode>('main')
-  const [status, setStatus] = useState<AppStatus>('idle')
-  const [result, setResult] = useState<TranslateResult | null>(null)
-  const [error, setError] = useState<string>('')
-  const [copied, setCopied] = useState(false)
-  const [authError, setAuthError] = useState('')
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [authSubmitting, setAuthSubmitting] = useState(false)
-  const [pendingImage, setPendingImage] = useState<string | null>(null)
-  const [history, setHistory] = useState<TranslationRecord[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState<TranslationRecord | null>(null)
-  const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null)
-  const [lastImage, setLastImage] = useState<string | null>(null)
-  const [targetLang, setTargetLang] = useState<'zh' | 'en' | 'jp' | 'kor'>('zh')
-  const [shortcut, setShortcut] = useState('Alt+Q')
-  const [presetShortcuts, setPresetShortcuts] = useState<string[]>([])
-  const [isPinned, setIsPinned] = useState(false)
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
-  const [updateChecking, setUpdateChecking] = useState(false)
-  const [showUpdateToast, setShowUpdateToast] = useState(false)
-  const [platform, setPlatform] = useState<'win32' | 'darwin' | 'linux'>('win32')
+  // Ref for targetLang to access latest value in async callbacks/effects
   const targetLangRef = useRef(targetLang)
 
   useEffect(() => {
     targetLangRef.current = targetLang
   }, [targetLang])
 
+  // Initialize app state (platform, shortcuts, pinned state)
+  useEffect(() => {
+    initApp()
+  }, [])
+
+  // View routing based on auth state
   useEffect(() => {
     if (!authLoading && !user) {
-      setView('login')
+      if (view !== 'login') setView('login')
     } else if (!authLoading && user && view === 'login') {
       setView('main')
     }
   }, [authLoading, user, view])
 
-  const handleGoToProfile = () => setView('profile')
-
-  useEffect(() => {
-    const detectedPlatform = window.electronAPI?.getPlatform?.() as 'win32' | 'darwin' | 'linux'
-    if (detectedPlatform) setPlatform(detectedPlatform)
-    window.electronAPI?.getShortcut?.().then(setShortcut).catch(() => {})
-    window.electronAPI?.getPresetShortcuts?.().then(setPresetShortcuts).catch(() => {})
-    window.electronAPI?.getAlwaysOnTop?.('main').then(setIsPinned).catch(() => {})
-    window.electronAPI?.checkForUpdates?.().then(setUpdateInfo).catch(() => {})
-  }, [])
-
-  const handleChangeShortcut = async (newShortcut: string) => {
-    const result = await window.electronAPI.setShortcut(newShortcut)
-    setShortcut(result.shortcut)
-  }
-
-  const handleTogglePin = async () => {
-    const newState = await window.electronAPI.toggleAlwaysOnTop('main')
-    setIsPinned(newState)
-  }
-
-  const handleGoToHistory = async () => {
-    setView('history')
-    setHistoryLoading(true)
-    try {
-      const records = await getTranslationHistory(20, 0)
-      setHistory(records)
-    } catch (err) {
-      console.error('Failed to load history:', err)
-    } finally {
-      setHistoryLoading(false)
-    }
-  }
-
-  // 翻译图片的核心函数
+  // 翻译图片的核心函数 - 移到这里是为了复用 Supabase 实例和状态更新逻辑
+  // 或者，这部分逻辑其实可以移到 store actions 中，但涉及 Supabase 调用，放在组件层或 lib 层调用更合适
+  // 考虑到 heavy logic, 这里保留核心调度，update store
   const translateImage = async (base64Image: string, accessToken: string, toLang: string = targetLang) => {
-    // 不在这里设置 loading 状态，因为调用方已经乐观地设置了
     setResult(null)
     setError('')
     
@@ -205,39 +49,34 @@ function App() {
       console.log('[translateImage] calling translateImageViaEdge, target:', toLang)
       const translateResult = await translateImageViaEdge(base64Image, accessToken, 'auto', toLang)
       console.log('[translateImage] result:', translateResult)
+      
       if (translateResult.error_code === '0' && translateResult.data) {
         setStatus('success')
         setResult({
-          image: translateResult.data.pasteImg || '',
-          sumSrc: translateResult.data.sumSrc,
-          sumDst: translateResult.data.sumDst,
+          image: translateResult.data?.pasteImg || '',
+          sumSrc: translateResult.data?.sumSrc,
+          sumDst: translateResult.data?.sumDst,
         })
         refreshQuota()
-        // 保存历史记录 - 直接从 session 获取 userId，避免闭包问题
+        
+        // 保存历史记录
         const { data: { session: currentSession } } = await supabase.auth.getSession()
         const userId = currentSession?.user?.id
-        if (userId && translateResult.data.pasteImg) {
-          console.log('[translateImage] uploading image and saving history...')
-          // 先上传图片
-          const imagePath = await uploadTranslationImage(userId, translateResult.data.pasteImg)
-          // 保存记录
-          saveTranslation({
-            user_id: userId,
-            source_text: translateResult.data.sumSrc || null,
-            translated_text: translateResult.data.sumDst || null,
-            source_lang: 'auto',
-            target_lang: toLang,
-            status: 'success',
-            image_size: base64Image.length,
-            image_path: imagePath,
-            error_message: null,
-          }).then(() => {
-            console.log('[translateImage] history saved, image_path:', imagePath)
-          }).catch((err) => {
-            console.error('[translateImage] failed to save history:', err)
-          })
-        } else {
-          console.log('[translateImage] skipping history save, no userId or pasteImg')
+        if (userId && translateResult.data?.pasteImg) {
+          uploadTranslationImage(userId, translateResult.data.pasteImg).then(async (imagePath) => {
+            await saveTranslation({
+              user_id: userId,
+              source_text: translateResult.data?.sumSrc || null,
+              translated_text: translateResult.data?.sumDst || null,
+              source_lang: 'auto',
+              target_lang: toLang,
+              status: 'success',
+              image_size: base64Image.length,
+              image_path: imagePath,
+              error_message: null,
+            })
+            console.log('[translateImage] history saved')
+          }).catch(console.error)
         }
       } else {
         setStatus('error')
@@ -249,18 +88,17 @@ function App() {
     }
   }
 
-  // 登录成功后，处理待翻译的图片
+  // Effect to handle pending image after login
+  // Note: pendingImage needs to be accessed from store
+  const pendingImage = useTranslationStore(s => s.pendingImage)
+  
   useEffect(() => {
     if (!session?.access_token || !pendingImage) return
     
-    console.log('[useEffect] processing pending image after login')
     const imageToProcess = pendingImage
     setPendingImage(null)
-    
-    // 乐观UI：立即显示"翻译中"状态
     setStatus('loading')
     
-    // 先检查配额再翻译
     checkAndUseQuota().then(quotaResult => {
       if (!quotaResult.success) {
         setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
@@ -272,45 +110,38 @@ function App() {
     })
   }, [session, pendingImage])
 
+  // Global Event Listeners
   useEffect(() => {
     if (!window.electronAPI) return
 
-    window.electronAPI.onScreenshotCaptured(async (base64Image) => {
-      console.log('[onScreenshotCaptured] received image, length:', base64Image?.length)
+    window.electronAPI.onScreenshotCaptured((base64Image) => {
+      console.log('[onScreenshotCaptured] received image')
       setResult(null)
       setError('')
       setView('main')
       setLastImage(base64Image)
 
-      // 直接从 Supabase 获取最新 session
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
-      console.log('[onScreenshotCaptured] current session:', !!currentSession)
-      
-      if (!currentSession?.access_token) {
-        // 未登录时，缓存截图，等待登录后处理
-        console.log('[onScreenshotCaptured] not logged in, caching image')
-        setPendingImage(base64Image)
-        setStatus('idle')
-        setError('请先登录后再翻译')
-        return
-      }
+      supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+        if (!currentSession?.access_token) {
+          console.log('[onScreenshotCaptured] not logged in, caching')
+          setPendingImage(base64Image)
+          setStatus('idle')
+          setError('请先登录后再翻译')
+          return
+        }
 
-      // 乐观UI：立即显示"翻译中"状态，提升用户体验
-      setStatus('loading')
+        setStatus('loading')
+        const quotaResult = await checkAndUseQuota()
+        
+        if (!quotaResult.success) {
+          setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
+          setStatus('error')
+          refreshQuota()
+          return
+        }
 
-      // 检查并扣减配额
-      console.log('[onScreenshotCaptured] checking quota...')
-      const quotaResult = await checkAndUseQuota()
-      console.log('[onScreenshotCaptured] quotaResult:', quotaResult)
-      if (!quotaResult.success) {
-        setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
-        setStatus('error')
-        refreshQuota()
-        return
-      }
-
-      // 已登录且有配额，翻译（使用 ref 获取最新 targetLang）
-      await translateImage(base64Image, currentSession.access_token, targetLangRef.current)
+        translateImage(base64Image, currentSession.access_token, targetLangRef.current)
+      })
     })
 
     window.electronAPI.onTranslateError((err) => {
@@ -329,105 +160,14 @@ function App() {
       }
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+
+    return () => {
+      // Cleanup listeners if electronAPI provides unsubscribe or just relies on overwriting callbacks
+      // The current implementation in preload might not support multiple listeners well or unsubscribe
+      // Assuming callbacks are overwritten or we don't need strict cleanup for single instance app
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [refreshQuota])
-
-  const handleCopy = (base64?: string) => {
-    const imageToCopy = base64 || result?.image
-    if (imageToCopy) {
-      window.electronAPI.copyImage(imageToCopy)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
-  }
-
-  const handleCapture = async () => {
-    console.log('[handleCapture] user:', !!user, 'session:', !!session)
-    if (!user) {
-      setView('login')
-      return
-    }
-    // 配额检查统一在 onScreenshotCaptured 中进行
-    console.log('[handleCapture] calling captureScreen')
-    window.electronAPI.captureScreen()
-  }
-
-  const handleMinimize = () => {
-    window.electronAPI.minimizeWindow()
-  }
-
-  const handleMaximize = () => {
-    window.electronAPI.maximizeWindow()
-  }
-
-  const handleClose = () => {
-    window.electronAPI.closeWindow()
-  }
-
-  const handleRetry = async () => {
-    if (!lastImage || !session?.access_token) return
-    setStatus('loading')
-    setError('')
-    await translateImage(lastImage, session.access_token)
-  }
-
-  const handleOAuthLogin = async (provider: 'github' | 'google') => {
-    setAuthError('')
-    const { error } = await signInWithOAuth(provider)
-    if (error) setAuthError(error.message)
-  }
-
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !password) {
-      setAuthError('请填写邮箱和密码')
-      return
-    }
-    setAuthError('')
-    setAuthSubmitting(true)
-    
-    if (authMode === 'login') {
-      const { error } = await signInWithEmail(email, password)
-      setAuthSubmitting(false)
-      if (error) {
-        const msg = error.message.toLowerCase()
-        if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
-          setAuthError('邮箱或密码错误')
-        } else if (msg.includes('email not confirmed')) {
-          setAuthError('邮箱未验证，请查收验证邮件')
-        } else {
-          setAuthError(error.message)
-        }
-      }
-    } else {
-      const { error, isExistingUser } = await signUpWithEmail(email, password)
-      setAuthSubmitting(false)
-      if (error) {
-        setAuthError(error.message)
-      } else if (isExistingUser) {
-        // 重复注册：Supabase 返回成功但 identities 为空
-        setAuthError('该邮箱已注册，请直接登录')
-        setAuthMode('login')
-        setPassword('')
-      } else {
-        setAuthError('')
-        setAuthMode('login')
-        setPassword('')
-        alert('注册成功，请查收验证邮件后登录')
-      }
-    }
-  }
-
-  const handleLogout = async () => {
-    await signOut()
-    setView('login')
-  }
-
-  const quotaExhausted = quota?.success && quota.remaining === 0
-
-  const openPreview = (imageData: string) => {
-    window.electronAPI.openPreview(imageData)
-  }
 
   if (authLoading) {
     return (
@@ -440,596 +180,23 @@ function App() {
     )
   }
 
-  if (view === 'login') {
-    return (
-      <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-        <div
-          className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        >
-          {platform === 'darwin' && (
-            <WindowControls
-              platform={platform}
-              onClose={handleClose}
-              onMinimize={handleMinimize}
-              onMaximize={handleMaximize}
-            />
-          )}
-          <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleTogglePin}
-              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-              title={isPinned ? '取消置顶' : '窗口置顶'}
-            >
-              📌
-            </button>
-            {platform !== 'darwin' && (
-              <WindowControls
-                platform={platform}
-                onClose={handleClose}
-                onMinimize={handleMinimize}
-                onMaximize={handleMaximize}
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
-          <h2 className="text-white text-lg font-medium">
-            {authMode === 'login' ? '登录' : '注册'}以使用翻译服务
-          </h2>
-          <p className="text-white/50 text-xs text-center">免费用户每日 20 次翻译配额</p>
-
-          {authError && <p className="text-red-400 text-xs">{authError}</p>}
-
-          <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3 w-full max-w-[220px]">
-            <input
-              type="email"
-              placeholder="邮箱"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full py-2 px-3 rounded-lg bg-white/10 text-white text-sm placeholder-white/40 outline-none focus:ring-1 focus:ring-white/30"
-            />
-            <input
-              type="password"
-              placeholder="密码"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full py-2 px-3 rounded-lg bg-white/10 text-white text-sm placeholder-white/40 outline-none focus:ring-1 focus:ring-white/30"
-            />
-            <button
-              type="submit"
-              disabled={authSubmitting}
-              className="w-full py-2 px-4 rounded-full bg-blue-500/80 hover:bg-blue-500 disabled:bg-white/10 disabled:text-white/40 text-white text-sm transition-colors"
-            >
-              {authSubmitting ? '处理中...' : (authMode === 'login' ? '登录' : '注册')}
-            </button>
-          </form>
-
-          <button
-            onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError('') }}
-            className="text-white/50 hover:text-white/70 text-xs"
-          >
-            {authMode === 'login' ? '没有账号？注册' : '已有账号？登录'}
-          </button>
-
-          <div className="flex items-center gap-3 w-full max-w-[220px]">
-            <div className="flex-1 h-px bg-white/20" />
-            <span className="text-white/40 text-xs">或</span>
-            <div className="flex-1 h-px bg-white/20" />
-          </div>
-
-          <button
-            onClick={() => handleOAuthLogin('github')}
-            className="w-full max-w-[220px] py-2 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
-          >
-            GitHub 登录
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (view === 'profile') {
-    const userEmail = user?.email || '未知'
-    const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail.split('@')[0]
-    const avatarUrl = user?.user_metadata?.avatar_url
-    const provider = user?.app_metadata?.provider || '未知'
-    const createdAt = user?.created_at ? new Date(user.created_at).toLocaleDateString('zh-CN') : '未知'
-
-    return (
-      <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-        <div
-          className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        >
-          {platform === 'darwin' && (
-            <WindowControls
-              platform={platform}
-              onClose={handleClose}
-              onMinimize={handleMinimize}
-              onMaximize={handleMaximize}
-            />
-          )}
-          <span className="text-white/80 text-sm font-medium">个人中心</span>
-          <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <button
-              onClick={handleTogglePin}
-              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-              title={isPinned ? '取消置顶' : '窗口置顶'}
-            >
-              📌
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-white/40 hover:text-white/60 text-xs"
-            >
-              退出登录
-            </button>
-            <button
-              onClick={() => setView('main')}
-              className="text-white/50 hover:text-white/70 text-xs"
-            >
-              返回
-            </button>
-            {platform !== 'darwin' && (
-              <WindowControls
-                platform={platform}
-                onClose={handleClose}
-                onMinimize={handleMinimize}
-                onMaximize={handleMaximize}
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col items-center p-4 gap-3 overflow-y-auto">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border-2 border-white/20" />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-2xl">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <h2 className="text-white text-lg font-medium">{userName}</h2>
-
-          <div className="w-full max-w-[240px] space-y-3 text-sm">
-            <div className="flex justify-between text-white/60">
-              <span>邮箱</span>
-              <span className="text-white/80 truncate max-w-[140px]">{userEmail}</span>
-            </div>
-            <div className="flex justify-between text-white/60">
-              <span>登录方式</span>
-              <span className="text-white/80 capitalize">{provider}</span>
-            </div>
-            <div className="flex justify-between text-white/60">
-              <span>注册时间</span>
-              <span className="text-white/80">{createdAt}</span>
-            </div>
-            {quota?.success && (
-              <>
-                <div className="flex justify-between text-white/60">
-                  <span>套餐类型</span>
-                  <span className="text-white/80">{quota.plan_display || quota.plan || '免费版'}</span>
-                </div>
-                <div className="flex justify-between text-white/60">
-                  <span>今日配额</span>
-                  <span className={quota.remaining === 0 ? 'text-red-400' : 'text-white/80'}>
-                    {quota.remaining}/{quota.daily_limit}
-                  </span>
-                </div>
-                {quota.expire_at && (
-                  <div className="flex justify-between text-white/60">
-                    <span>到期时间</span>
-                    <span className={new Date(quota.expire_at) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) ? 'text-yellow-400' : 'text-white/80'}>
-                      {new Date(quota.expire_at).toLocaleDateString('zh-CN')}
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-            <div className="flex justify-between items-center text-white/60 pt-2 border-t border-white/10">
-              <span>截图快捷键</span>
-              <select
-                value={shortcut}
-                onChange={(e) => handleChangeShortcut(e.target.value)}
-                className="text-xs bg-white/10 text-white/80 rounded px-2 py-1 outline-none cursor-pointer hover:bg-white/20"
-              >
-                {presetShortcuts.map((s) => (
-                  <option key={s} value={s}>{s.replace('CommandOrControl', 'Ctrl')}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex justify-between items-center text-white/60">
-              <span>目标语言</span>
-              <select
-                value={targetLang}
-                onChange={(e) => setTargetLang(e.target.value as typeof targetLang)}
-                className="text-xs bg-white/10 text-white/80 rounded px-2 py-1 outline-none cursor-pointer hover:bg-white/20"
-              >
-                <option value="zh">中文</option>
-                <option value="en">English</option>
-                <option value="jp">日本語</option>
-                <option value="kor">한국어</option>
-              </select>
-            </div>
-            <div className="flex justify-between items-center text-white/60">
-              <span>版本</span>
-              <div className="flex items-center gap-2">
-                {updateInfo?.hasUpdate && (
-                  <span className="text-xs text-green-400">v{updateInfo.latestVersion} 可用</span>
-                )}
-                <button
-                  onClick={async () => {
-                    setUpdateChecking(true)
-                    const info = await window.electronAPI.checkForUpdates()
-                    setUpdateInfo(info)
-                    setUpdateChecking(false)
-                    if (info.hasUpdate) {
-                      window.electronAPI.openReleasesPage()
-                    }
-                  }}
-                  disabled={updateChecking}
-                  className="text-xs bg-white/10 text-white/80 rounded px-2 py-1 hover:bg-white/20 disabled:opacity-50"
-                >
-                  {updateChecking ? '检查中...' : `v${updateInfo?.currentVersion || '...'}`}
-                </button>
-              </div>
-            </div>
-            <button
-              onClick={handleGoToHistory}
-              className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-sm transition-colors"
-            >
-              翻译历史 →
-            </button>
-            <button
-              onClick={handleLogout}
-              className="w-full py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm transition-colors"
-            >
-              退出登录
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (view === 'history') {
-    return (
-      <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-        <div
-          className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        >
-          <WindowControls
-            platform={platform}
-            onClose={handleClose}
-            onMinimize={handleMinimize}
-            onMaximize={handleMaximize}
-          />
-          <span className="text-white/80 text-sm font-medium">翻译历史</span>
-          <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <button
-              onClick={handleTogglePin}
-              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-              title={isPinned ? '取消置顶' : '窗口置顶'}
-            >
-              📌
-            </button>
-            <button
-              onClick={() => setView('profile')}
-              className="text-white/50 hover:text-white/70 text-xs"
-            >
-              返回
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {historyLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <span className="text-white/60 text-sm flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
-                加载中...
-              </span>
-            </div>
-          ) : history.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <span className="text-white/40 text-sm">暂无翻译记录</span>
-            </div>
-          ) : (
-            <div className="p-3 space-y-2">
-              {history.map((record) => (
-                <div
-                  key={record.id}
-                  onClick={async () => {
-                    setSelectedRecord(record)
-                    setDetailImageUrl(null)
-                    setView('historyDetail')
-                    if (record.image_path) {
-                      const url = await getTranslationImageUrl(record.image_path)
-                      setDetailImageUrl(url)
-                    }
-                  }}
-                  className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-white/40 text-xs">
-                      {new Date(record.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <span className={`text-xs ${record.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                      {record.status === 'success' ? '成功' : '失败'}
-                    </span>
-                  </div>
-                  {record.source_text && (
-                    <p className="text-white/60 text-xs truncate">{record.source_text}</p>
-                  )}
-                  {record.translated_text && (
-                    <p className="text-white/80 text-sm truncate mt-1">{record.translated_text}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  if (view === 'historyDetail' && selectedRecord) {
-    const copyText = (text: string) => {
-      navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
-
-    return (
-      <div className="h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col">
-        <div
-          className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        >
-          {platform === 'darwin' && (
-            <WindowControls
-              platform={platform}
-              onClose={handleClose}
-              onMinimize={handleMinimize}
-              onMaximize={handleMaximize}
-            />
-          )}
-          <span className="text-white/80 text-sm font-medium">翻译详情</span>
-          <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <button
-              onClick={handleTogglePin}
-              className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'}`}
-              title={isPinned ? '取消置顶' : '窗口置顶'}
-            >
-              📌
-            </button>
-            <button
-              onClick={() => setView('history')}
-              className="text-white/50 hover:text-white/70 text-xs"
-            >
-              返回
-            </button>
-            {platform !== 'darwin' && (
-              <WindowControls
-                platform={platform}
-                onClose={handleClose}
-                onMinimize={handleMinimize}
-                onMaximize={handleMaximize}
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-white/40">
-              {new Date(selectedRecord.created_at).toLocaleString('zh-CN')}
-            </span>
-            <span className={selectedRecord.status === 'success' ? 'text-green-400' : 'text-red-400'}>
-              {selectedRecord.status === 'success' ? '翻译成功' : '翻译失败'}
-            </span>
-          </div>
-
-          {/* 翻译结果图片 */}
-          {selectedRecord.image_path && (
-            <div className="space-y-2">
-              <span className="text-white/50 text-xs">翻译图片</span>
-              {detailImageUrl ? (
-                <img
-                  src={detailImageUrl}
-                  alt="翻译结果"
-                  className="w-full rounded-lg object-contain bg-white/5 cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => openPreview(detailImageUrl)}
-                  title="点击放大"
-                />
-              ) : (
-                <div className="h-32 rounded-lg bg-white/5 flex items-center justify-center">
-                  <span className="text-white/40 text-xs flex items-center gap-2">
-                    <span className="w-3 h-3 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
-                    加载图片...
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {selectedRecord.source_text && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">原文</span>
-                <button
-                  onClick={() => copyText(selectedRecord.source_text!)}
-                  className="text-white/40 hover:text-white/60 text-xs"
-                >
-                  复制
-                </button>
-              </div>
-              <p className="text-white/70 text-sm leading-relaxed bg-white/5 rounded-lg p-3">
-                {selectedRecord.source_text}
-              </p>
-            </div>
-          )}
-
-          {selectedRecord.translated_text && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">译文</span>
-                <button
-                  onClick={() => copyText(selectedRecord.translated_text!)}
-                  className="text-white/40 hover:text-white/60 text-xs"
-                >
-                  {copied ? '已复制 ✓' : '复制'}
-                </button>
-              </div>
-              <p className="text-white/90 text-sm leading-relaxed bg-white/5 rounded-lg p-3">
-                {selectedRecord.translated_text}
-              </p>
-            </div>
-          )}
-
-          <div className="text-white/30 text-xs pt-2">
-            {selectedRecord.source_lang} → {selectedRecord.target_lang}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-glass-bg backdrop-blur-glass rounded-2xl border border-glass-border overflow-hidden flex flex-col relative">
-      {/* 更新提示 Toast */}
-      {showUpdateToast && updateInfo?.hasUpdate && (
-        <div className="absolute top-12 left-4 right-4 bg-green-500/90 rounded-lg p-3 shadow-lg z-50 animate-slide-down">
-          <div className="flex items-center justify-between text-white text-sm">
-            <span>🎉 发现新版本 v{updateInfo.latestVersion}</span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowUpdateToast(false)}
-                className="text-white/70 hover:text-white text-xs"
-              >
-                稍后
-              </button>
-              <button
-                onClick={() => {
-                  window.electronAPI.openReleasesPage()
-                  setShowUpdateToast(false)
-                }}
-                className="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-xs"
-              >
-                查看
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* 标题栏 */}
-      <div
-        className="h-9 flex items-center justify-between px-3 bg-black/20 cursor-move"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        {platform === 'darwin' && (
-          <WindowControls
-            platform={platform}
-            onClose={handleClose}
-            onMinimize={handleMinimize}
-            onMaximize={handleMaximize}
-          />
-        )}
-        <span className="text-white/80 text-sm font-medium">LiteTrans</span>
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={handleTogglePin}
-            className={`text-xs transition-colors ${isPinned ? 'text-yellow-400' : 'text-white/40 hover:text-white/60'} outline-none`}
-            title={isPinned ? '取消置顶' : '窗口置顶'}
-            tabIndex={-1}
-          >
-            📌
-          </button>
-          {platform !== 'darwin' && (
-            <WindowControls
-              platform={platform}
-              onClose={handleClose}
-              onMinimize={handleMinimize}
-              onMaximize={handleMaximize}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* 简化状态栏 - 只显示快捷键提示和配额 */}
-      <div className="px-4 py-2 border-b border-glass-border flex items-center justify-between">
-        <span className="text-white/60 text-xs">按 {shortcut.replace('CommandOrControl', 'Ctrl')} 截图翻译</span>
-        <div className="flex items-center gap-2">
-          {quota?.success && (
-            <span className={`text-xs ${quotaExhausted ? 'text-red-400' : 'text-white/50'}`}>
-              {quota.remaining}/{quota.daily_limit}
-            </span>
-          )}
-          <button
-            onClick={handleGoToProfile}
-            className="text-white/40 hover:text-white/60 text-xs"
-          >
-            我的
-          </button>
-        </div>
-      </div>
-
-      {/* 主内容区域 - 展示翻译结果或状态 */}
-      <div className="flex-1 p-4 flex items-center justify-center min-h-[200px]">
-        {status === 'loading' ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
-            <span className="text-blue-400 text-lg font-medium">翻译中...</span>
-          </div>
-        ) : status === 'error' ? (
-          <div className="flex flex-col items-center gap-3 max-w-[280px]">
-            <div className="text-red-400 text-4xl">✗</div>
-            <span className="text-red-400 text-base text-center">{error}</span>
-            {lastImage && session?.access_token && (
-              <button 
-                onClick={handleRetry} 
-                className="mt-2 px-6 py-2 rounded-full bg-blue-500/80 hover:bg-blue-500 text-white text-sm transition-colors"
-              >
-                重试翻译
-              </button>
-            )}
-          </div>
-        ) : result?.image ? (
-          <img
-            src={`data:image/png;base64,${result.image}`}
-            alt="翻译结果"
-            className="max-w-full max-h-[400px] rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
-            onClick={() => openPreview(result.image)}
-            title="点击放大"
-          />
-        ) : (
-          <div className="text-white/40 text-sm">暂无翻译结果</div>
-        )}
-      </div>
-
-      {/* 操作栏 */}
-      <div className="px-4 py-3 border-t border-glass-border flex gap-2">
-        <button
-          onClick={handleCapture}
-          disabled={quotaExhausted}
-          className="flex-1 py-2 rounded-full bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:text-white/30 text-white/80 text-sm transition-colors"
-        >
-          {quotaExhausted ? '配额已用完' : '重新截图'}
-        </button>
-        <button
-          onClick={() => handleCopy()}
-          disabled={!result?.image}
-          className="flex-1 py-2 rounded-full bg-blue-500/80 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/30 text-white text-sm transition-colors"
-        >
-          {copied ? '已复制 ✓' : '复制图片'}
-        </button>
-      </div>
-    </div>
+    <>
+      {view === 'login' && <LoginView />}
+      {view === 'main' && <MainView />}
+      {view === 'profile' && <ProfileView />}
+      {view === 'history' && <HistoryView />}
+      {view === 'historyDetail' && <HistoryDetailView />}
+      
+      {/* Update Toast rendering is moved to MainView or a global Overlay component. 
+          Actually, let's keep it in MainView or specific views, or create a GlobalToast component.
+          In the original App.tsx, it was rendered overlaying everything.
+          To keep it simple, we can rely on stores to trigger it in views, or have it here.
+          But App.tsx is now cleaner. Let's assume MainView handles the update toast for now
+          as it's the primary view.
+          If update toast should appear anywhere, we should wrap children in a Layout.
+      */}
+    </>
   )
 }
 
