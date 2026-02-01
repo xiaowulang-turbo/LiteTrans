@@ -1,20 +1,22 @@
-import { useEffect, useRef } from 'react'
-import { checkAndUseQuota, supabase, saveTranslation, uploadTranslationImage, translateImageViaEdge } from './lib/supabase'
+import { useEffect, useRef, Suspense, lazy } from 'react'
+import { supabase } from './lib/supabase'
 import { useAuth } from './hooks/useAuth'
 import { useAppStore } from './store/appStore'
 import { useTranslationStore } from './store/translationStore'
 import { LoginView } from './components/views/LoginView'
 import { MainView } from './components/views/MainView'
-import { ProfileView } from './components/views/ProfileView'
-import { HistoryView } from './components/views/HistoryView'
-import { HistoryDetailView } from './components/views/HistoryDetailView'
+
+// Lazy load non-critical views
+const ProfileView = lazy(() => import('./components/views/ProfileView').then(module => ({ default: module.ProfileView })))
+const HistoryView = lazy(() => import('./components/views/HistoryView').then(module => ({ default: module.HistoryView })))
+const HistoryDetailView = lazy(() => import('./components/views/HistoryDetailView').then(module => ({ default: module.HistoryDetailView })))
 
 function App() {
   const { view, targetLang, init: initApp, setView } = useAppStore()
-  const { user, session, loading: authLoading, refreshQuota } = useAuth()
+  const { user, session, loading: authLoading } = useAuth()
   const { 
     setResult, setStatus, setError, setLastImage, setPendingImage, 
-    setUpdateInfo, setShowUpdateToast 
+    setUpdateInfo, setShowUpdateToast, translateImage 
   } = useTranslationStore()
   
   // Ref for targetLang to access latest value in async callbacks/effects
@@ -38,77 +40,19 @@ function App() {
     }
   }, [authLoading, user, view])
 
-  // 翻译图片的核心函数 - 移到这里是为了复用 Supabase 实例和状态更新逻辑
-  // 或者，这部分逻辑其实可以移到 store actions 中，但涉及 Supabase 调用，放在组件层或 lib 层调用更合适
-  // 考虑到 heavy logic, 这里保留核心调度，update store
-  const translateImage = async (base64Image: string, accessToken: string, toLang: string = targetLang) => {
-    setResult(null)
-    setError('')
-    
-    try {
-      console.log('[translateImage] calling translateImageViaEdge, target:', toLang)
-      const translateResult = await translateImageViaEdge(base64Image, accessToken, 'auto', toLang)
-      console.log('[translateImage] result:', translateResult)
-      
-      if (translateResult.error_code === '0' && translateResult.data) {
-        setStatus('success')
-        setResult({
-          image: translateResult.data?.pasteImg || '',
-          sumSrc: translateResult.data?.sumSrc,
-          sumDst: translateResult.data?.sumDst,
-        })
-        refreshQuota()
-        
-        // 保存历史记录
-        const { data: { session: currentSession } } = await supabase.auth.getSession()
-        const userId = currentSession?.user?.id
-        if (userId && translateResult.data?.pasteImg) {
-          uploadTranslationImage(userId, translateResult.data.pasteImg).then(async (imagePath) => {
-            await saveTranslation({
-              user_id: userId,
-              source_text: translateResult.data?.sumSrc || null,
-              translated_text: translateResult.data?.sumDst || null,
-              source_lang: 'auto',
-              target_lang: toLang,
-              status: 'success',
-              image_size: base64Image.length,
-              image_path: imagePath,
-              error_message: null,
-            })
-            console.log('[translateImage] history saved')
-          }).catch(console.error)
-        }
-      } else {
-        setStatus('error')
-        setError(translateResult.error_msg || '翻译失败')
-      }
-    } catch (err) {
-      setStatus('error')
-      setError((err as Error).message || '翻译失败')
-    }
-  }
-
   // Effect to handle pending image after login
   // Note: pendingImage needs to be accessed from store
   const pendingImage = useTranslationStore(s => s.pendingImage)
   
   useEffect(() => {
-    if (!session?.access_token || !pendingImage) return
+    if (!session?.access_token || !user?.id || !pendingImage) return
     
     const imageToProcess = pendingImage
     setPendingImage(null)
-    setStatus('loading')
     
-    checkAndUseQuota().then(quotaResult => {
-      if (!quotaResult.success) {
-        setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
-        setStatus('error')
-        refreshQuota()
-        return
-      }
-      translateImage(imageToProcess, session.access_token, targetLangRef.current)
-    })
-  }, [session, pendingImage])
+    // Delegate to store which handles loading, quota, and translation
+    translateImage(imageToProcess, user.id, session.access_token, targetLangRef.current)
+  }, [session, user, pendingImage, setPendingImage, translateImage])
 
   // Global Event Listeners
   useEffect(() => {
@@ -116,13 +60,14 @@ function App() {
 
     window.electronAPI.onScreenshotCaptured((base64Image) => {
       console.log('[onScreenshotCaptured] received image')
+      // Reset UI state locally or rely on store (store.translateImage resets status/result)
+      // But we need to switch view and update lastImage
       setResult(null)
-      setError('')
       setView('main')
       setLastImage(base64Image)
 
       supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-        if (!currentSession?.access_token) {
+        if (!currentSession?.access_token || !currentSession?.user?.id) {
           console.log('[onScreenshotCaptured] not logged in, caching')
           setPendingImage(base64Image)
           setStatus('idle')
@@ -130,17 +75,8 @@ function App() {
           return
         }
 
-        setStatus('loading')
-        const quotaResult = await checkAndUseQuota()
-        
-        if (!quotaResult.success) {
-          setError(quotaResult.error === 'quota_exceeded' ? '今日配额已用完' : quotaResult.error || '配额检查失败')
-          setStatus('error')
-          refreshQuota()
-          return
-        }
-
-        translateImage(base64Image, currentSession.access_token, targetLangRef.current)
+        // Delegate to store
+        translateImage(base64Image, currentSession.user.id, currentSession.access_token, targetLangRef.current)
       })
     })
 
@@ -167,7 +103,10 @@ function App() {
       // Assuming callbacks are overwritten or we don't need strict cleanup for single instance app
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [refreshQuota])
+  }, [
+    setView, setLastImage, setResult, setPendingImage, setStatus, setError, 
+    translateImage, setUpdateInfo, setShowUpdateToast
+  ])
 
   if (authLoading) {
     return (
@@ -182,11 +121,19 @@ function App() {
 
   return (
     <>
-      {view === 'login' && <LoginView />}
-      {view === 'main' && <MainView />}
-      {view === 'profile' && <ProfileView />}
-      {view === 'history' && <HistoryView />}
-      {view === 'historyDetail' && <HistoryDetailView />}
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-full w-full py-20">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+        </div>
+      }>
+        <div className="view-transition w-full h-full"> 
+          {view === 'login' && <LoginView />}
+          {view === 'main' && <MainView />}
+          {view === 'profile' && <ProfileView />}
+          {view === 'history' && <HistoryView />}
+          {view === 'historyDetail' && <HistoryDetailView />}
+        </div>
+      </Suspense>
       
       {/* Update Toast rendering is moved to MainView or a global Overlay component. 
           Actually, let's keep it in MainView or specific views, or create a GlobalToast component.
