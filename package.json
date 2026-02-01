@@ -1,6 +1,6 @@
 {
 	"name": "litetrans",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "截图即译 - 基于百度图片翻译 API 的轻量级翻译工具",
 	"main": "./out/main/index.js",
 	"packageManager": "pnpm@9.0.0",
@@ -12,7 +12,6 @@
 		"test:api": "npx ts-node scripts/test-api.ts",
 		"init:release": "npx ts-node scripts/init-github-release.ts",
 		"publish:release": "npx ts-node scripts/publish.ts",
-		"upload:release": "npx ts-node scripts/upload-release.ts",
 		"lint": "eslint src electron --ext .ts,.tsx",
 		"lint:fix": "eslint src electron --ext .ts,.tsx --fix",
 		"lint:tsc": "tsc --noEmit",
@@ -29,6 +28,7 @@
 		"@typescript-eslint/parser": "^6.21.0",
 		"@vitejs/plugin-react": "^4.2.0",
 		"autoprefixer": "^10.4.16",
+		"dotenv": "^17.2.3",
 		"electron": "^28.0.0",
 		"electron-builder": "^24.9.1",
 		"electron-vite": "^5.0.0",
@@ -53,6 +53,10 @@
 	"build": {
 		"appId": "com.litetrans.app",
 		"productName": "LiteTrans",
+		"asar": true,
+		"asarUnpack": [
+			"**/*.node"
+		],
 		"mac": {
 			"category": "public.app-category.productivity",
 			"target": "dmg",
@@ -63,7 +67,8 @@
 			}
 		},
 		"files": [
-			"out/**/*"
+			"out/**/*",
+			"package.json"
 		],
 		"extraResources": [
 			{
