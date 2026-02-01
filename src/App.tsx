@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { checkAndUseQuota, supabase, saveTranslation, uploadTranslationImage, translateImageViaEdge } from './lib/supabase'
-import { useAuthStore } from './store/authStore'
+import { useAuth } from './hooks/useAuth'
 import { useAppStore } from './store/appStore'
 import { useTranslationStore } from './store/translationStore'
 import { LoginView } from './components/views/LoginView'
@@ -11,7 +11,7 @@ import { HistoryDetailView } from './components/views/HistoryDetailView'
 
 function App() {
   const { view, targetLang, init: initApp, setView } = useAppStore()
-  const { user, session, loading: authLoading, refreshQuota } = useAuthStore()
+  const { user, session, loading: authLoading, refreshQuota } = useAuth()
   const { 
     setResult, setStatus, setError, setLastImage, setPendingImage, 
     setUpdateInfo, setShowUpdateToast 
