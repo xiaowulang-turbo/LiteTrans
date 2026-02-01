@@ -15,7 +15,7 @@ interface AuthState {
   setQuota: (quota: QuotaInfo | null) => void
   refreshQuota: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>
-  signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>
+  signUpWithEmail: (email: string, password: string) => Promise<{ error: any; isExistingUser?: boolean }>
   signInWithOAuth: (provider: 'github' | 'google') => Promise<{ error: any }>
   signOut: () => Promise<void>
   reset: () => void
@@ -47,9 +47,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   signUpWithEmail: async (email, password) => {
     set({ loading: true })
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    const isExistingUser = data?.user && (!data.user.identities || data.user.identities.length === 0)
     set({ loading: false })
-    return { error }
+    return { error, isExistingUser: !!isExistingUser }
   },
   signInWithOAuth: async (provider) => {
     set({ loading: true })

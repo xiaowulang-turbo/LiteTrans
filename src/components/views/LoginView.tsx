@@ -6,8 +6,8 @@ import { WindowControls } from '../WindowControls'
 export function LoginView() {
   const { signInWithEmail, signUpWithEmail, signInWithOAuth } = useAuthStore()
   const { 
-    mode, email, password, error, isSubmitting,
-    setMode, setEmail, setPassword, setError, setSubmitting, reset 
+    authMode: mode, email, password, authError: error, authSubmitting: isSubmitting,
+    setAuthMode: setMode, setEmail, setPassword, setAuthError: setError, setAuthSubmitting: setSubmitting 
   } = useAuthFormStore()
   const { platform, isPinned, togglePin } = useAppStore()
 

@@ -58,7 +58,7 @@ export function HistoryView() {
     <HistoryList 
       history={history} 
       loading={historyLoading}
-      onSelect={(record) => {
+      onSelect={(record: any) => {
         // We need to set View to historyDetail AND set selected record.
         // If I can't set selected record in store, I can't really pass it easily via App.
         // So I should modify translationStore to hold `selectedRecord`.
