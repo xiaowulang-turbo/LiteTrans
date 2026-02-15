@@ -107,7 +107,7 @@ function getPreviewWindowHtml(platform: string): string {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { 
           width: 100%; height: 100%; 
-          background: rgba(0,0,0,0.95);
+          background: rgba(30, 30, 46, 0.85);
           overflow: hidden;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
@@ -117,11 +117,12 @@ function getPreviewWindowHtml(platform: string): string {
         }
         .header {
           height: 32px; 
-          background: rgba(0,0,0,0.5);
+          background: rgba(30, 30, 46, 0.6);
           display: flex; align-items: center; justify-content: space-between;
           padding: 0 ${isMac ? '12px' : '0'};
           -webkit-app-region: drag;
           position: relative;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         .title-container {
             position: absolute;
@@ -192,6 +193,8 @@ function getPreviewWindowHtml(platform: string): string {
         .image-area img { max-width: none; border-radius: 8px; }
         .footer {
           padding: 12px; display: flex; justify-content: center; gap: 12px;
+          background: rgba(30, 30, 46, 0.6);
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         .footer button {
           padding: 8px 24px; border-radius: 20px; border: none;

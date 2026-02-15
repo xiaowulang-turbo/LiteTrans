@@ -94,13 +94,13 @@ export function HistoryDetailView() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15 18l-6-6 6-6" />
           </svg>
-          返回列表
+          返回
         </button>
         <span className="ml-4 text-white/80 font-medium">翻译详情</span>
       </div>
 
 
-      <div className="flex-1 min-h-0 space-y-4 overflow-hidden">
+      <div className="flex-1 min-h-0 space-y-4 overflow-y-auto">
         <div className="flex items-center justify-between text-xs">
           <span className="text-white/40">
             {new Date(selectedRecord.created_at).toLocaleString('zh-CN')}
@@ -111,28 +111,54 @@ export function HistoryDetailView() {
         </div>
 
         {/* 翻译结果图片 */}
-        {selectedRecord.image_path && (
+        {selectedRecord.image_path ? (
           <div className="space-y-2">
             <span className="text-white/50 text-xs">翻译图片</span>
-            <div className="relative max-h-[40vh] rounded-lg bg-white/5 flex items-center justify-center overflow-hidden">
+            <div 
+              className="relative rounded-lg bg-white/5 flex items-center justify-center overflow-hidden cursor-pointer group"
+              style={{ minHeight: '120px' }}
+              onClick={detailImageUrl ? handleOpenPreview : undefined}
+            >
+              {/* 骨架屏 / 加载状态 */}
               {(!detailImageUrl || imageLoading) && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/5">
-                  <span className="text-white/40 text-xs flex items-center gap-2">
-                    <span className="w-3 h-3 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
-                    加载图片...
-                  </span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/5">
+                  <span className="w-8 h-8 border-2 border-white/30 border-t-white/70 rounded-full animate-spin mb-2" />
+                  <span className="text-white/40 text-xs">加载图片...</span>
                 </div>
               )}
+              
+              {/* 图片 */}
               {detailImageUrl && (
                 <img
                   src={detailImageUrl}
                   alt="翻译结果"
-                  className={`w-full rounded-lg object-contain cursor-pointer hover:opacity-90 transition-all duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
-                  onClick={handleOpenPreview}
+                  className={`w-full max-h-[40vh] rounded-lg object-contain transition-all duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100 group-hover:opacity-90'}`}
                   onLoad={() => setImageLoading(false)}
+                  onError={() => setImageLoading(false)}
                   title="点击放大"
                 />
               )}
+              
+              {/* 悬停提示 */}
+              {detailImageUrl && !imageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                  <span className="bg-black/50 text-white/80 text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
+                    点击放大
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <span className="text-white/50 text-xs">翻译图片</span>
+            <div className="rounded-lg bg-white/5 border border-dashed border-white/20 flex flex-col items-center justify-center py-8">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/30 mb-2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              <span className="text-white/40 text-xs">暂无图片</span>
             </div>
           </div>
         )}
