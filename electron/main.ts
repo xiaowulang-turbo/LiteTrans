@@ -1,7 +1,8 @@
 import { app, ipcMain, clipboard, nativeImage, shell, BrowserWindow, screen } from 'electron'
 import path from 'path'
 
-import { createMainWindow, createPreviewWindow, mainWindow, previewWindow } from './modules/window'
+import { createMainWindow, mainWindow } from './modules/window'
+import { createPreviewWindow, previewWindow } from './modules/preview-window'
 import { captureScreen, setupScreenshotIPC } from './modules/screenshot'
 import { registerShortcuts, updateShortcut, getCurrentShortcut, PRESET_SHORTCUTS, unregisterAllShortcuts } from './modules/shortcut'
 import { createTray } from './modules/tray'
