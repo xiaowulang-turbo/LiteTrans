@@ -1,4 +1,4 @@
-import { app, ipcMain, clipboard, nativeImage, shell } from 'electron'
+import { app, ipcMain, clipboard, nativeImage, shell, BrowserWindow, screen } from 'electron'
 import path from 'path'
 
 import { createMainWindow, createPreviewWindow, mainWindow, previewWindow } from './modules/window'
@@ -45,13 +45,11 @@ function setupIPC() {
   })
 
   ipcMain.on('minimize-window', (event) => {
-    const { BrowserWindow } = require('electron')
     const win = BrowserWindow.fromWebContents(event.sender)
     win?.minimize()
   })
 
   ipcMain.on('maximize-window', (event) => {
-    const { BrowserWindow } = require('electron')
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win?.isMaximized()) {
       win.unmaximize()
@@ -75,7 +73,6 @@ function setupIPC() {
 
   ipcMain.on('resize-preview-window', (_event, width: number, height: number) => {
     if (!previewWindow || previewWindow.isDestroyed()) return
-    const { screen } = require('electron')
     const display = screen.getPrimaryDisplay()
     const maxWidth = Math.floor(display.workAreaSize.width * 0.9)
     const maxHeight = Math.floor(display.workAreaSize.height * 0.9)

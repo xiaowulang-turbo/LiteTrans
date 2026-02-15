@@ -20,7 +20,7 @@ export function Sidebar({ currentView, onChangeView }: SidebarProps) {
           return (
             <button
               key={item.id}
-              onClick={() => onChangeView(item.id as any)}
+              onClick={() => onChangeView(item.id as 'main' | 'history' | 'profile')}
               className={`
                 group relative flex flex-col items-center justify-center w-full aspect-square rounded-xl transition-all duration-200
                 ${isActive 

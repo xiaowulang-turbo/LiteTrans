@@ -1,36 +1,42 @@
 import { useEffect } from 'react'
 import { useTranslationStore } from '../../store/translationStore'
 import { useAppStore } from '../../store/appStore'
+import { TranslationRecord } from '../../lib/supabase'
 
+interface HistoryListProps {
+  history: TranslationRecord[]
+  loading: boolean
+  onSelect: (record: TranslationRecord) => void
+}
 
 export function HistoryView() {
-  const { history, historyLoading, loadHistory } = useTranslationStore()
+  const { history, historyLoading, loadHistory, setSelectedRecord } = useTranslationStore()
   const { setView } = useAppStore()
   
   useEffect(() => {
     loadHistory()
   }, [loadHistory])
 
+  const handleSelect = (record: TranslationRecord) => {
+    setSelectedRecord(record)
+    setView('historyDetail')
+  }
+
   return (
     <HistoryList 
       history={history} 
       loading={historyLoading}
-      onSelect={(record: any) => {
-        const { setSelectedRecord } = useTranslationStore.getState()
-        setSelectedRecord(record)
-        setView('historyDetail')
-      }}
+      onSelect={handleSelect}
     />
   )
 }
 
-function HistoryList({ history, loading, onSelect }: any) {
+function HistoryList({ history, loading, onSelect }: HistoryListProps) {
   return (
     <div className="h-full w-full flex flex-col p-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-white/80 font-medium">翻译历史</h2>
       </div>
-
 
       <div className="flex-1 overflow-y-auto pr-1">
         {loading ? (
@@ -46,7 +52,7 @@ function HistoryList({ history, loading, onSelect }: any) {
           </div>
         ) : (
           <div className="p-3 space-y-2">
-            {history.map((record: any) => (
+            {history.map((record: TranslationRecord) => (
               <div
                 key={record.id}
                 onClick={() => onSelect(record)}

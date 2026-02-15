@@ -30,7 +30,7 @@ function App() {
   // Initialize app state (platform, shortcuts, pinned state)
   useEffect(() => {
     initApp()
-  }, [])
+  }, [initApp])
 
   // View routing based on auth state
   useEffect(() => {
@@ -39,7 +39,7 @@ function App() {
     } else if (!authLoading && user && view === 'login') {
       setView('main')
     }
-  }, [authLoading, user, view])
+  }, [authLoading, user, view, setView])
 
   // Effect to handle pending image after login
   // Note: pendingImage needs to be accessed from store

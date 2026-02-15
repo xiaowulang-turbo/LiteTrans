@@ -1,11 +1,24 @@
-export {}
+export interface UpdateInfo {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  releaseUrl: string
+  releaseNotes: string
+  publishedAt: string
+}
+
+export interface TranslateResult {
+  image: string
+  sumSrc?: string
+  sumDst?: string
+}
 
 declare global {
   interface Window {
     electronAPI: {
       onScreenshotCaptured: (callback: (base64: string) => void) => void
       onTranslateStart: (callback: () => void) => void
-      onTranslateResult: (callback: (result: any) => void) => void
+      onTranslateResult: (callback: (result: TranslateResult) => void) => void
       onTranslateError: (callback: (error: string) => void) => void
       captureScreen: () => void
       copyImage: (base64: string) => void
@@ -20,8 +33,8 @@ declare global {
       openPreview: (base64: string) => void
       toggleAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
       getAlwaysOnTop: (windowType?: 'main' | 'preview') => Promise<boolean>
-      checkForUpdates: () => Promise<any>
-      onUpdateAvailable: (callback: (info: any) => void) => void
+      checkForUpdates: () => Promise<UpdateInfo>
+      onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void
       openReleasesPage: () => void
       getPlatform: () => string
       getCachedImage: (storagePath: string) => Promise<string | null>

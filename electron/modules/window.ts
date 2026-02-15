@@ -1,4 +1,4 @@
-import { BrowserWindow, app, nativeImage } from 'electron'
+import { BrowserWindow, app } from 'electron'
 import path from 'path'
 
 const isDev = !app.isPackaged

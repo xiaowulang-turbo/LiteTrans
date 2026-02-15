@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-type ViewMode = 'main' | 'login' | 'profile' | 'history' | 'historyDetail'
+export type ViewMode = 'main' | 'login' | 'profile' | 'history' | 'historyDetail'
 type Platform = 'win32' | 'darwin' | 'linux'
 
 interface AppState {

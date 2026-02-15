@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { User, Session } from '@supabase/supabase-js'
+import { User, Session, AuthError } from '@supabase/supabase-js'
 import { QuotaInfo, getUserQuota, supabase } from '../lib/supabase'
 
 
@@ -14,9 +14,9 @@ interface AuthState {
   setLoading: (loading: boolean) => void
   setQuota: (quota: QuotaInfo | null) => void
   refreshQuota: () => Promise<void>
-  signInWithEmail: (email: string, password: string) => Promise<{ error: any }>
-  signUpWithEmail: (email: string, password: string) => Promise<{ error: any; isExistingUser?: boolean }>
-  signInWithOAuth: (provider: 'github' | 'google') => Promise<{ error: any }>
+  signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>
+  signUpWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null; isExistingUser?: boolean }>
+  signInWithOAuth: (provider: 'github' | 'google') => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
   reset: () => void
 }
