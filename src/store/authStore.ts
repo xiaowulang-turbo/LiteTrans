@@ -58,7 +58,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       provider,
       options: {
         redirectTo: 'litetrans://auth/callback',
-        skipBrowserRedirect: false,
+        skipBrowserRedirect: true,
       },
     })
     if (data?.url) {
