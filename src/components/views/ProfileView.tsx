@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { useAppStore } from '../../store/appStore'
 
@@ -8,6 +9,7 @@ export function ProfileView() {
     shortcut, targetLang, presetShortcuts,
     setView, setShortcut, setTargetLang 
   } = useAppStore()
+  const [avatarError, setAvatarError] = useState(false)
 
 
 
@@ -34,8 +36,13 @@ export function ProfileView() {
 
 
       <div className="w-full max-w-[400px] flex flex-col items-center p-6 gap-4">
-        {avatarUrl ? (
-          <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border-2 border-white/20" />
+        {avatarUrl && !avatarError ? (
+          <img 
+            src={avatarUrl} 
+            alt="头像" 
+            className="w-16 h-16 rounded-full border-2 border-white/20"
+            onError={() => setAvatarError(true)}
+          />
         ) : (
           <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-2xl">
             {userName.charAt(0).toUpperCase()}
