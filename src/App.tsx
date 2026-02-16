@@ -1,6 +1,6 @@
 import { useEffect, useRef, Suspense, lazy } from 'react'
 import { supabase } from './lib/supabase'
-import { useAuth } from './hooks/useAuth'
+import { useAuthStore } from './store/authStore'
 import { useAppStore } from './store/appStore'
 import { useTranslationStore } from './store/translationStore'
 import { LoginView } from './components/views/LoginView'
@@ -14,7 +14,7 @@ const HistoryDetailView = lazy(() => import('./components/views/HistoryDetailVie
 
 function App() {
   const { view, targetLang, init: initApp, setView } = useAppStore()
-  const { user, session, loading: authLoading } = useAuth()
+  const { user, session, loading: authLoading, initialize } = useAuthStore()
   const { 
     setResult, setStatus, setError, setLastImage, setPendingImage, 
     setUpdateInfo, setShowUpdateToast, translateImage 
@@ -26,6 +26,12 @@ function App() {
   useEffect(() => {
     targetLangRef.current = targetLang
   }, [targetLang])
+
+  // Initialize auth (session + OAuth listener)
+  useEffect(() => {
+    const cleanup = initialize()
+    return cleanup
+  }, [initialize])
 
   // Initialize app state (platform, shortcuts, pinned state)
   useEffect(() => {
