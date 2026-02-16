@@ -150,6 +150,13 @@ export function LoginView() {
         >
           GitHub 登录
         </button>
+
+        <button
+          onClick={() => handleOAuthLogin('google')}
+          className="w-full max-w-[220px] py-2 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+        >
+          Google 登录
+        </button>
       </div>
     </div>
   )

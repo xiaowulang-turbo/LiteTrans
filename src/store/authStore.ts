@@ -130,6 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signInWithOAuth: async (provider) => {
     const { setLoading } = get()
     setLoading(true)
+    // Electron 使用 litetrans:// 协议接收 OAuth 回调
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
