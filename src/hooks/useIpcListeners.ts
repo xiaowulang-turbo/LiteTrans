@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppStore } from '../store/appStore'
 import { useTranslationStore } from '../store/translationStore'
+import { useUIStore } from '../store/uiStore'
 
 export function useIpcListeners() {
   const { setView, targetLang } = useAppStore()
-  const { 
-    setResult, setStatus, setError, setLastImage, setPendingImage,
-    setUpdateInfo, setShowUpdateToast, translateImage
+  const {
+    setResult, setStatus, setError, setLastImage, setPendingImage, translateImage
   } = useTranslationStore()
+  const { setUpdateInfo, setShowUpdateToast } = useUIStore()
 
   const targetLangRef = useRef(targetLang)
   useEffect(() => {
@@ -54,6 +55,6 @@ export function useIpcListeners() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [setView, setResult, setStatus, setError, setLastImage, setPendingImage, 
+  }, [setView, setResult, setStatus, setError, setLastImage, setPendingImage,
       setUpdateInfo, setShowUpdateToast, translateImage])
 }

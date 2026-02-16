@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useTranslationStore } from '../../store/translationStore'
+import { useHistoryStore } from '../../store/historyStore'
 import { useAppStore } from '../../store/appStore'
 import { TranslationRecord } from '../../lib/supabase'
 
@@ -10,9 +10,9 @@ interface HistoryListProps {
 }
 
 export function HistoryView() {
-  const { history, historyLoading, loadHistory, setSelectedRecord } = useTranslationStore()
+  const { history, historyLoading, loadHistory, setSelectedRecord } = useHistoryStore()
   const { setView } = useAppStore()
-  
+
   useEffect(() => {
     loadHistory()
   }, [loadHistory])

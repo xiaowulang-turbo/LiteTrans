@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useTranslationStore } from '../../store/translationStore'
+import { useHistoryStore } from '../../store/historyStore'
 import { useAppStore } from '../../store/appStore'
 
 import { getTranslationImageUrl } from '../../lib/supabase'
 
 export function HistoryDetailView() {
-  const { selectedRecord, detailImageUrl, setDetailImageUrl } = useTranslationStore()
+  const { selectedRecord, detailImageUrl, setDetailImageUrl } = useHistoryStore()
   const [imageLoading, setImageLoading] = useState(true)
   
   useEffect(() => {
