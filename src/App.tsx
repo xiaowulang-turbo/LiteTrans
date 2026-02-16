@@ -1,8 +1,8 @@
-import { useEffect, useRef, Suspense, lazy } from 'react'
-import { supabase } from './lib/supabase'
+import { useEffect, Suspense, lazy } from 'react'
 import { useAuthStore } from './store/authStore'
 import { useAppStore } from './store/appStore'
 import { useTranslationStore } from './store/translationStore'
+import { useIpcListeners } from './hooks/useIpcListeners'
 import { LoginView } from './components/views/LoginView'
 import { MainView } from './components/views/MainView'
 import { AppLayout } from './components/layout/AppLayout'
@@ -13,107 +13,39 @@ const HistoryView = lazy(() => import('./components/views/HistoryView').then(mod
 const HistoryDetailView = lazy(() => import('./components/views/HistoryDetailView').then(module => ({ default: module.HistoryDetailView })))
 
 function App() {
-  const { view, targetLang, init: initApp, setView } = useAppStore()
+  const { view, init: initApp } = useAppStore()
   const { user, session, loading: authLoading, initialize } = useAuthStore()
-  const { 
-    setResult, setStatus, setError, setLastImage, setPendingImage, 
-    setUpdateInfo, setShowUpdateToast, translateImage 
-  } = useTranslationStore()
-  
-  // Ref for targetLang to access latest value in async callbacks/effects
-  const targetLangRef = useRef(targetLang)
+  const { setPendingImage, translateImage } = useTranslationStore()
 
-  useEffect(() => {
-    targetLangRef.current = targetLang
-  }, [targetLang])
+  useIpcListeners()
 
-  // Initialize auth (session + OAuth listener)
   useEffect(() => {
     const cleanup = initialize()
     return cleanup
   }, [initialize])
 
-  // Initialize app state (platform, shortcuts, pinned state)
   useEffect(() => {
     initApp()
   }, [initApp])
 
-  // View routing based on auth state
   useEffect(() => {
-    if (!authLoading && !user) {
-      if (view !== 'login') setView('login')
+    if (!authLoading && !user && view !== 'login') {
+      useAppStore.getState().setView('login')
     } else if (!authLoading && user && view === 'login') {
-      setView('main')
+      useAppStore.getState().setView('main')
     }
-  }, [authLoading, user, view, setView])
+  }, [authLoading, user, view])
 
-  // Effect to handle pending image after login
-  // Note: pendingImage needs to be accessed from store
   const pendingImage = useTranslationStore(s => s.pendingImage)
-  
+  const targetLang = useAppStore(s => s.targetLang)
+
   useEffect(() => {
     if (!session?.access_token || !user?.id || !pendingImage) return
-    
+
     const imageToProcess = pendingImage
     setPendingImage(null)
-    
-    // Delegate to store which handles loading, quota, and translation
-    translateImage(imageToProcess, user.id, session.access_token, targetLangRef.current)
-  }, [session, user, pendingImage, setPendingImage, translateImage])
-
-  // Global Event Listeners
-  useEffect(() => {
-    if (!window.electronAPI) return
-
-    window.electronAPI.onScreenshotCaptured((base64Image) => {
-      console.log('[onScreenshotCaptured] received image')
-      // Reset UI state locally or rely on store (store.translateImage resets status/result)
-      // But we need to switch view and update lastImage
-      setResult(null)
-      setView('main')
-      setLastImage(base64Image)
-
-      supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-        if (!currentSession?.access_token || !currentSession?.user?.id) {
-          console.log('[onScreenshotCaptured] not logged in, caching')
-          setPendingImage(base64Image)
-          setStatus('idle')
-          setError('请先登录后再翻译')
-          return
-        }
-
-        // Delegate to store
-        translateImage(base64Image, currentSession.user.id, currentSession.access_token, targetLangRef.current)
-      })
-    })
-
-    window.electronAPI.onTranslateError((err) => {
-      setStatus('error')
-      setError(err)
-    })
-
-    window.electronAPI.onUpdateAvailable?.((info) => {
-      setUpdateInfo(info)
-      setShowUpdateToast(true)
-    })
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        window.electronAPI.closeWindow()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      // Cleanup listeners if electronAPI provides unsubscribe or just relies on overwriting callbacks
-      // The current implementation in preload might not support multiple listeners well or unsubscribe
-      // Assuming callbacks are overwritten or we don't need strict cleanup for single instance app
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    setView, setLastImage, setResult, setPendingImage, setStatus, setError, 
-    translateImage, setUpdateInfo, setShowUpdateToast
-  ])
+    translateImage(imageToProcess, user.id, session.access_token, targetLang)
+  }, [session, user, pendingImage, setPendingImage, translateImage, targetLang])
 
   if (authLoading) {
     return (
