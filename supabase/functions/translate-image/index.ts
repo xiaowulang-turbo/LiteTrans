@@ -13,18 +13,70 @@ const BAIDU_API_URL = 'https://fanyi-api.baidu.com/api/trans/sdk/picture'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-app-version',
 }
 
 serve(async (req) => {
   console.log('[translate-image] Request received:', req.method)
-  
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // 验证用户身份
+    // 1. 检查应用版本
+    const appVersion = req.headers.get('x-app-version')
+    console.log('[translate-image] App version:', appVersion)
+
+    if (!appVersion) {
+      return new Response(
+        JSON.stringify({
+          error_code: 'VERSION_REQUIRED',
+          error_msg: '请更新到最新版本以继续使用',
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // 2. 查询版本配置
+    const { data: config } = await supabase
+      .from('app_version_configs')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (config) {
+      // 检查黑名单
+      if (config.blocked_versions.includes(appVersion)) {
+        return new Response(
+          JSON.stringify({
+            error_code: 'VERSION_BLOCKED',
+            error_msg: '此版本已停止使用，请下载最新版本',
+            update_url: config.update_url,
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // 检查最低版本
+      if (appVersion < config.min_required_version) {
+        return new Response(
+          JSON.stringify({
+            error_code: 'FORCE_UPDATE',
+            error_msg: config.force_update_message,
+            update_url: config.update_url,
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // 3. 验证用户身份
     const authHeader = req.headers.get('Authorization')
     console.log('[translate-image] Auth header present:', !!authHeader)
     if (!authHeader) {
@@ -34,13 +86,11 @@ serve(async (req) => {
       })
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    const supabaseAuth = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
     })
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
     console.log('[translate-image] User:', user?.id, 'Error:', authError?.message)
     if (authError || !user) {
       return new Response(JSON.stringify({ error: '用户验证失败' }), {

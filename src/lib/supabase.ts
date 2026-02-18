@@ -164,10 +164,11 @@ export async function translateImageViaEdge(
   base64Image: string,
   accessToken: string,
   fromLang = 'auto',
-  toLang = 'zh'
+  toLang = 'zh',
+  appVersion?: string
 ): Promise<TranslateImageResult> {
   console.log('[translateImageViaEdge] start, image length:', base64Image?.length)
-  
+
   try {
     console.log('[translateImageViaEdge] converting base64 to blob...')
     const binaryStr = atob(base64Image)
@@ -185,14 +186,15 @@ export async function translateImageViaEdge(
 
     const url = `${supabaseUrl}/functions/v1/translate-image`
     console.log('[translateImageViaEdge] sending request to:', url)
-    
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 60000)
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        'x-app-version': appVersion || 'unknown',
       },
       body: formData,
       signal: controller.signal,

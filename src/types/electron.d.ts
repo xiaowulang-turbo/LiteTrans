@@ -13,6 +13,14 @@ export interface TranslateResult {
   sumDst?: string
 }
 
+export interface VersionBlockInfo {
+  allowed: boolean
+  reason?: 'force_update' | 'blocked'
+  message?: string
+  update_url?: string
+  latest_version?: string
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -39,6 +47,8 @@ declare global {
       getPlatform: () => string
       getCachedImage: (storagePath: string) => Promise<string | null>
       saveImageToCache: (url: string, storagePath: string) => Promise<string | null>
+      getAppVersion: () => string
+      onVersionBlocked: (callback: (info: VersionBlockInfo) => void) => void
     }
   }
 }

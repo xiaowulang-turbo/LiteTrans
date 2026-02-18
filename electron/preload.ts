@@ -9,6 +9,14 @@ interface UpdateInfo {
   publishedAt: string
 }
 
+interface VersionBlockInfo {
+  allowed: boolean
+  reason?: 'force_update' | 'blocked'
+  message?: string
+  update_url?: string
+  latest_version?: string
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   onScreenshotCaptured: (callback: (base64: string) => void) => {
     ipcRenderer.removeAllListeners('screenshot-captured')
@@ -104,5 +112,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   saveImageToCache: (url: string, storagePath: string): Promise<string | null> => {
     return ipcRenderer.invoke('save-image-to-cache', url, storagePath)
+  },
+  // 版本控制
+  getAppVersion: (): string => {
+    return ipcRenderer.sendSync('get-app-version')
+  },
+  onVersionBlocked: (callback: (info: VersionBlockInfo) => void) => {
+    ipcRenderer.removeAllListeners('version-blocked')
+    ipcRenderer.on('version-blocked', (_event, info) => callback(info))
   },
 })

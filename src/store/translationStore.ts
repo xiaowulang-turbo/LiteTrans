@@ -59,7 +59,17 @@ export const useTranslationStore = create<TranslationState>((set) => ({
         return
       }
 
-      const translateResult = await translateImageViaEdge(base64Image, accessToken, 'auto', toLang)
+      const appVersion = window.electronAPI?.getAppVersion?.() || 'unknown'
+      const translateResult = await translateImageViaEdge(base64Image, accessToken, 'auto', toLang, appVersion)
+
+      // 处理版本控制错误
+      if (translateResult.error_code === 'VERSION_BLOCKED' || translateResult.error_code === 'FORCE_UPDATE' || translateResult.error_code === 'VERSION_REQUIRED') {
+        set({
+          status: 'error',
+          error: translateResult.error_msg || '版本已过期，请更新'
+        })
+        return
+      }
 
       if (translateResult.error_code === '0' && translateResult.data) {
         const result: TranslateResult = {

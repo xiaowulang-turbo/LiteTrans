@@ -8,6 +8,7 @@ import { registerShortcuts, updateShortcut, getCurrentShortcut, PRESET_SHORTCUTS
 import { createTray } from './modules/tray'
 import { checkForUpdates } from './modules/update'
 import { getCachedImage, saveImageToCache } from './modules/cache'
+import { checkAppVersionOnStartup, notifyVersionBlocked, setupVersionControlIPC } from './modules/version-control'
 
 const isDev = !app.isPackaged
 const PROTOCOL_NAME = 'litetrans'
@@ -121,6 +122,11 @@ function setupIPC() {
   ipcMain.handle('save-image-to-cache', (_event, url: string, storagePath: string) => {
     return saveImageToCache(url, storagePath)
   })
+
+  // 版本控制 IPC
+  ipcMain.on('get-app-version', (event) => {
+    event.returnValue = app.getVersion()
+  })
 }
 
 app.on('open-url', (_event, url) => {
@@ -138,21 +144,28 @@ if (!gotTheLock) {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // 1. 首先检查版本，如被阻止则直接退出
+  const allowed = await checkAppVersionOnStartup()
+  if (!allowed) {
+    return
+  }
+
   createMainWindow()
-  
+
   createTray(
     () => captureScreen(mainWindow, process.platform),
-    () => mainWindow?.show(),
+    () => showAndFocusWindow(mainWindow),
     () => app.quit()
   )
-  
+
   registerShortcuts(
     () => captureScreen(mainWindow, process.platform),
     () => showAndFocusWindow(mainWindow)
   )
-  
+
   setupIPC()
+  setupVersionControlIPC()
 
   if (!isDev) {
     setTimeout(async () => {
