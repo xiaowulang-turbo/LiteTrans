@@ -137,7 +137,7 @@ export function getPreviewWindowHtml(platform: string): string {
             ${isMac ? macControls : ''}
           </div>
           <div class="title-container">
-            <span>图片预览 (ESC 关闭)</span>
+            <span>图片预览</span>
           </div>
           <div class="header-right">
             <button class="pin-btn inactive" id="pin-btn" title="窗口置顶">📌</button>

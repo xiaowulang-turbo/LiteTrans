@@ -4,6 +4,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { Monitor, Image } from 'node-screenshots'
+import { showAndFocusWindow } from './window'
 
 const TEMP_SCREENSHOT_PATH = path.join(os.tmpdir(), 'litetrans_screenshot.png')
 
@@ -27,7 +28,7 @@ function captureScreenMacOS(mainWindow: BrowserWindow | null) {
   exec(`screencapture -i "${TEMP_SCREENSHOT_PATH}"`, async (error) => {
     if (error) {
       mainWindow?.webContents.send('translate-error', '截图失败')
-      mainWindow?.show()
+      showAndFocusWindow(mainWindow)
       return
     }
 
@@ -35,7 +36,7 @@ function captureScreenMacOS(mainWindow: BrowserWindow | null) {
       return
     }
 
-    mainWindow?.show()
+    showAndFocusWindow(mainWindow)
 
     try {
       const imageBuffer = fs.readFileSync(TEMP_SCREENSHOT_PATH)
@@ -56,7 +57,7 @@ async function captureScreenWindows(mainWindow: BrowserWindow | null) {
     const monitors = Monitor.all()
     if (monitors.length === 0) {
       mainWindow?.webContents.send('translate-error', '无法获取显示器')
-      mainWindow?.show()
+      showAndFocusWindow(mainWindow)
       return
     }
     
@@ -71,7 +72,7 @@ async function captureScreenWindows(mainWindow: BrowserWindow | null) {
     const error = err as Error
     console.error('[captureScreenWindows] error:', error)
     mainWindow?.webContents.send('translate-error', error.message)
-    mainWindow?.show()
+    showAndFocusWindow(mainWindow)
   }
 }
 
@@ -160,14 +161,14 @@ export function setupScreenshotIPC(mainWindow: BrowserWindow | null) {
       lastScreenshot = null
       
       console.timeEnd('screenshot-crop')
-      
-      mainWindow?.show()
+
+      showAndFocusWindow(mainWindow)
       mainWindow?.webContents.send('screenshot-captured', base64Image)
     } catch (err) {
       console.error('[crop-result] error:', err)
       lastScreenshot = null
       mainWindow?.webContents.send('translate-error', (err as Error).message)
-      mainWindow?.show()
+      showAndFocusWindow(mainWindow)
     }
   })
 }

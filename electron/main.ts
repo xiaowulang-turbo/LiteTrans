@@ -1,7 +1,7 @@
 import { app, ipcMain, clipboard, nativeImage, shell, BrowserWindow, screen } from 'electron'
 import path from 'path'
 
-import { createMainWindow, mainWindow } from './modules/window'
+import { createMainWindow, mainWindow, showAndFocusWindow } from './modules/window'
 import { createPreviewWindow, previewWindow } from './modules/preview-window'
 import { captureScreen, setupScreenshotIPC } from './modules/screenshot'
 import { registerShortcuts, updateShortcut, getCurrentShortcut, PRESET_SHORTCUTS, unregisterAllShortcuts } from './modules/shortcut'
@@ -134,7 +134,7 @@ if (!gotTheLock) {
   app.on('second-instance', (_event, argv) => {
     const url = argv.find(arg => arg.startsWith(`${PROTOCOL_NAME}://`))
     if (url) handleOAuthCallback(url)
-    mainWindow?.show()
+    showAndFocusWindow(mainWindow)
   })
 }
 
@@ -149,7 +149,7 @@ app.whenReady().then(() => {
   
   registerShortcuts(
     () => captureScreen(mainWindow, process.platform),
-    () => mainWindow?.show()
+    () => showAndFocusWindow(mainWindow)
   )
   
   setupIPC()

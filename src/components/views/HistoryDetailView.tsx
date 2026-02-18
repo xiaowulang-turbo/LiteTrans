@@ -123,7 +123,7 @@ export function HistoryDetailView() {
               {(!detailImageUrl || imageLoading) && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/5">
                   <span className="w-8 h-8 border-2 border-white/30 border-t-white/70 rounded-full animate-spin mb-2" />
-                  <span className="text-white/40 text-xs">加载图片...</span>
+                  <span className="text-white/40 text-xs">加载中...</span>
                 </div>
               )}
               

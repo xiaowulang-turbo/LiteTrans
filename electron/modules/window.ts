@@ -39,3 +39,19 @@ export function createMainWindow(): BrowserWindow {
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow
 }
+
+/**
+ * 显示窗口并确保获得焦点（置于前台）
+ * 解决 macOS 上 show() 不保证窗口激活的问题
+ */
+export function showAndFocusWindow(win: BrowserWindow | null): void {
+  if (!win || win.isDestroyed()) return
+
+  win.show()
+  win.focus()
+
+  // macOS 需要额外处理才能确保应用激活到前台
+  if (process.platform === 'darwin') {
+    app.focus({ steal: true })
+  }
+}
