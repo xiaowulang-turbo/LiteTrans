@@ -36,7 +36,7 @@ export function Navbar() {
             下载
           </a>
           <a
-            href="https://github.com/ArcMichael/LiteTrans"
+            href="https://github.com/xiaowulang-turbo/LiteTrans-Releases"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
