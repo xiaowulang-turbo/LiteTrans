@@ -1,11 +1,13 @@
 import { Button } from '@/components/ui/button'
 import { DownloadInfo } from '@/lib/github'
+import { Translations } from '@/lib/i18n'
 
 interface DownloadProps {
 	downloadInfo: DownloadInfo
+	t: Translations
 }
 
-export function Download({ downloadInfo }: DownloadProps) {
+export function Download({ downloadInfo, t }: DownloadProps) {
 	return (
 		<section className='py-24 px-6'>
 			<div className='max-w-3xl mx-auto'>
@@ -21,10 +23,10 @@ export function Download({ downloadInfo }: DownloadProps) {
 						</div>
 
 						<h2 className='text-2xl md:text-3xl font-bold mb-3'>
-							立即体验 LiteTrans
+							{t.download.title}
 						</h2>
 						<p className='text-muted-foreground mb-8 max-w-md mx-auto'>
-							支持 macOS 12.0+ 及 Windows 10+，安装即用，无需配置
+							{t.download.description}
 						</p>
 
 						{/* 下载按钮 */}
@@ -36,7 +38,7 @@ export function Download({ downloadInfo }: DownloadProps) {
 							>
 								<a href={downloadInfo.macUrl} target='_blank' rel='noopener noreferrer'>
 									<AppleIcon className='w-6 h-6 mr-2' />
-									macOS 下载
+									{t.download.macDownload}
 								</a>
 							</Button>
 							<Button
@@ -46,7 +48,7 @@ export function Download({ downloadInfo }: DownloadProps) {
 							>
 								<a href={downloadInfo.winUrl} target='_blank' rel='noopener noreferrer'>
 									<WindowsIcon className='w-6 h-6 mr-2' />
-									Windows 下载
+									{t.download.winDownload}
 								</a>
 							</Button>
 						</div>
@@ -55,15 +57,15 @@ export function Download({ downloadInfo }: DownloadProps) {
 						<div className='mt-8 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground'>
 							<div className='flex items-center gap-2'>
 								<CheckIcon className='w-4 h-4 text-green-400' />
-								<span>免费使用</span>
+								<span>{t.download.free}</span>
 							</div>
 							<div className='flex items-center gap-2'>
 								<CheckIcon className='w-4 h-4 text-green-400' />
-								<span>每日 20 次配额</span>
+								<span>{t.download.quota}</span>
 							</div>
 							<div className='flex items-center gap-2'>
 								<CheckIcon className='w-4 h-4 text-green-400' />
-								<span>无广告</span>
+								<span>{t.download.noAds}</span>
 							</div>
 						</div>
 					</div>

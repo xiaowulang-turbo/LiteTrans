@@ -4,21 +4,24 @@ import { Features } from "@/components/features";
 import { Download } from "@/components/download";
 import { Footer } from "@/components/footer";
 import { getLatestRelease } from "@/lib/github";
+import { getLocale, getTranslations } from "@/lib/locale";
 
 export default async function Home() {
   const downloadInfo = await getLatestRelease();
+  const locale = getLocale();
+  const t = getTranslations(locale);
 
   return (
     <main className="relative">
-      <Navbar />
-      <Hero downloadInfo={downloadInfo} />
+      <Navbar t={t} />
+      <Hero downloadInfo={downloadInfo} t={t} />
       <section id="features">
-        <Features />
+        <Features t={t} />
       </section>
       <section id="download">
-        <Download downloadInfo={downloadInfo} />
+        <Download downloadInfo={downloadInfo} t={t} />
       </section>
-      <Footer />
+      <Footer t={t} />
     </main>
   );
 }

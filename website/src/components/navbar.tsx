@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Translations } from "@/lib/i18n";
 
-export function Navbar() {
+interface NavbarProps {
+  t: Translations;
+}
+
+export function Navbar({ t }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -30,10 +35,10 @@ export function Navbar() {
         {/* 导航链接 */}
         <div className="hidden md:flex items-center gap-6">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            功能
+            {t.nav.features}
           </a>
           <a href="#download" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            下载
+            {t.nav.download}
           </a>
           <a
             href="https://github.com/xiaowulang-turbo/LiteTrans-Releases"
@@ -51,7 +56,7 @@ export function Navbar() {
           className="bg-primary hover:bg-primary/90"
           onClick={() => document.getElementById("download")?.scrollIntoView({ behavior: "smooth" })}
         >
-          下载
+          {t.nav.download}
         </Button>
       </nav>
     </header>

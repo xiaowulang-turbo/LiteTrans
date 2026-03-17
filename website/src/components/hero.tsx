@@ -1,11 +1,13 @@
 import { Button } from '@/components/ui/button'
 import { DownloadInfo } from '@/lib/github'
+import { Translations } from '@/lib/i18n'
 
 interface HeroProps {
 	downloadInfo: DownloadInfo
+	t: Translations
 }
 
-export function Hero({ downloadInfo }: HeroProps) {
+export function Hero({ downloadInfo, t }: HeroProps) {
 	return (
 		<section className='relative min-h-screen flex items-center justify-center overflow-hidden'>
 			{/* 背景渐变光斑 */}
@@ -20,22 +22,20 @@ export function Hero({ downloadInfo }: HeroProps) {
 				<div className='inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass mb-8'>
 					<span className='w-2 h-2 rounded-full bg-green-400 animate-pulse' />
 					<span className='text-sm text-muted-foreground'>
-						macOS / Windows 双平台支持
+						{t.hero.badge}
 					</span>
 				</div>
 
 				{/* 主标题 */}
 				<h1 className='text-5xl md:text-7xl font-bold tracking-tight mb-6'>
-					<span className='gradient-text'>截图</span>
-					<span className='text-foreground'>即</span>
-					<span className='gradient-text'>翻译</span>
+					<span className='gradient-text'>{t.hero.title[0]}</span>
+					<span className='text-foreground'>{t.hero.title[1]}</span>
+					<span className='gradient-text'>{t.hero.title[2]}</span>
 				</h1>
 
 				{/* 副标题 */}
 				<p className='text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed'>
-					一键快捷键截图，AI 实时识别翻译，
-					<br className='hidden md:block' />
-					图文对照展示，让跨语言阅读更轻松
+					{t.hero.subtitle}
 				</p>
 
 				{/* CTA 按钮 */}
@@ -47,7 +47,7 @@ export function Hero({ downloadInfo }: HeroProps) {
 					>
 						<a href={downloadInfo.macUrl} target='_blank' rel='noopener noreferrer'>
 							<AppleIcon className='w-5 h-5 mr-2' />
-							macOS 下载
+							{t.hero.macDownload}
 						</a>
 					</Button>
 					<Button
@@ -57,7 +57,7 @@ export function Hero({ downloadInfo }: HeroProps) {
 					>
 						<a href={downloadInfo.winUrl} target='_blank' rel='noopener noreferrer'>
 							<WindowsIcon className='w-5 h-5 mr-2' />
-							Windows 下载
+							{t.hero.winDownload}
 						</a>
 					</Button>
 					<Button
@@ -65,13 +65,13 @@ export function Hero({ downloadInfo }: HeroProps) {
 						variant='outline'
 						className='h-12 px-8 text-base glass glass-hover'
 					>
-						了解更多
+						{t.hero.learnMore}
 					</Button>
 				</div>
 
 				{/* 版本信息 */}
 				<p className='mt-6 text-sm text-muted-foreground'>
-					{downloadInfo.version} · 免费使用 · 每日 20 次配额
+					{t.hero.versionInfo.replace('{version}', downloadInfo.version)}
 				</p>
 
 				{/* 产品截图 */}
@@ -83,7 +83,7 @@ export function Hero({ downloadInfo }: HeroProps) {
 									<span className='text-3xl'>📸</span>
 								</div>
 								<p className='text-muted-foreground'>
-									产品演示
+									{t.hero.demo}
 								</p>
 							</div>
 						</div>
