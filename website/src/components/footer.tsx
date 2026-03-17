@@ -31,7 +31,7 @@ export function Footer() {
 
           {/* 版权 */}
           <p className="text-sm text-muted-foreground">
-            © 2024 LiteTrans. All rights reserved.
+            © {new Date().getFullYear()} LiteTrans. All rights reserved.
           </p>
         </div>
       </div>
