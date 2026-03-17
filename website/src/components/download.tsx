@@ -1,8 +1,11 @@
-'use client'
-
 import { Button } from '@/components/ui/button'
+import { DownloadInfo } from '@/lib/github'
 
-export function Download() {
+interface DownloadProps {
+	downloadInfo: DownloadInfo
+}
+
+export function Download({ downloadInfo }: DownloadProps) {
 	return (
 		<section className='py-24 px-6'>
 			<div className='max-w-3xl mx-auto'>
@@ -29,28 +32,22 @@ export function Download() {
 							<Button
 								size='lg'
 								className='h-14 px-10 text-lg bg-primary hover:bg-primary/90 glow'
-								onClick={() =>
-									window.open(
-										'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/download/v1.0.0/LiteTrans-1.0.0-arm64.dmg',
-										'_blank'
-									)
-								}
+								asChild
 							>
-								<AppleIcon className='w-6 h-6 mr-2' />
-								macOS 下载
+								<a href={downloadInfo.macUrl} target='_blank' rel='noopener noreferrer'>
+									<AppleIcon className='w-6 h-6 mr-2' />
+									macOS 下载
+								</a>
 							</Button>
 							<Button
 								size='lg'
 								className='h-14 px-10 text-lg bg-primary hover:bg-primary/90 glow'
-								onClick={() =>
-									window.open(
-										'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/latest/download/LiteTrans.Setup.1.0.0.exe',
-										'_blank'
-									)
-								}
+								asChild
 							>
-								<WindowsIcon className='w-6 h-6 mr-2' />
-								Windows 下载
+								<a href={downloadInfo.winUrl} target='_blank' rel='noopener noreferrer'>
+									<WindowsIcon className='w-6 h-6 mr-2' />
+									Windows 下载
+								</a>
 							</Button>
 						</div>
 

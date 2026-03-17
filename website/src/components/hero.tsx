@@ -1,8 +1,11 @@
-'use client'
-
 import { Button } from '@/components/ui/button'
+import { DownloadInfo } from '@/lib/github'
 
-export function Hero() {
+interface HeroProps {
+	downloadInfo: DownloadInfo
+}
+
+export function Hero({ downloadInfo }: HeroProps) {
 	return (
 		<section className='relative min-h-screen flex items-center justify-center overflow-hidden'>
 			{/* 背景渐变光斑 */}
@@ -40,28 +43,22 @@ export function Hero() {
 					<Button
 						size='lg'
 						className='h-12 px-6 text-base bg-primary hover:bg-primary/90 glow'
-						onClick={() =>
-							window.open(
-								'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/download/v1.0.0/LiteTrans-1.0.0-arm64.dmg',
-								'_blank'
-							)
-						}
+						asChild
 					>
-						<AppleIcon className='w-5 h-5 mr-2' />
-						macOS 下载
+						<a href={downloadInfo.macUrl} target='_blank' rel='noopener noreferrer'>
+							<AppleIcon className='w-5 h-5 mr-2' />
+							macOS 下载
+						</a>
 					</Button>
 					<Button
 						size='lg'
 						className='h-12 px-6 text-base bg-primary hover:bg-primary/90 glow'
-						onClick={() =>
-							window.open(
-								'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/latest/download/LiteTrans.Setup.1.0.0.exe',
-								'_blank'
-							)
-						}
+						asChild
 					>
-						<WindowsIcon className='w-5 h-5 mr-2' />
-						Windows 下载
+						<a href={downloadInfo.winUrl} target='_blank' rel='noopener noreferrer'>
+							<WindowsIcon className='w-5 h-5 mr-2' />
+							Windows 下载
+						</a>
 					</Button>
 					<Button
 						size='lg'
@@ -74,7 +71,7 @@ export function Hero() {
 
 				{/* 版本信息 */}
 				<p className='mt-6 text-sm text-muted-foreground'>
-					v1.0.0 · 免费使用 · 每日 20 次配额
+					{downloadInfo.version} · 免费使用 · 每日 20 次配额
 				</p>
 
 				{/* 产品截图 */}
