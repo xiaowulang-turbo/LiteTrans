@@ -1,0 +1,59 @@
+name: Update README on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get release info
+        id: release
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION_NUM=$(echo "$VERSION" | sed 's/^v//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_num=$VERSION_NUM" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
+
+      - name: Update README download links
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          VERSION_NUM="${{ steps.release.outputs.version_num }}"
+
+          # 更新版本号标题
+          sed -i "s/## 下载最新版本.*/## 下载最新版本 ($VERSION)/" README.md
+
+          # 更新 macOS 下载链接 (匹配 vX.X.X 和 LiteTrans-X.X.X-arm64.dmg)
+          sed -i "s|releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+/LiteTrans-[0-9]\+\.[0-9]\+\.[0-9]\+-arm64\.dmg|releases/download/$VERSION/LiteTrans-$VERSION_NUM-arm64.dmg|g" README.md
+
+          # 更新 Windows 下载链接 (匹配 vX.X.X 和 LiteTrans.Setup.X.X.X.exe)
+          sed -i "s|releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+/LiteTrans\.Setup\.[0-9]\+\.[0-9]\+\.[0-9]\+\.exe|releases/download/$VERSION/LiteTrans.Setup.$VERSION_NUM.exe|g" README.md
+
+          echo "README updated with version $VERSION"
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to README"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "README has changes"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update README download links for ${{ steps.release.outputs.version }}"
+          git push

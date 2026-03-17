@@ -42,7 +42,7 @@ export function Hero() {
 						className='h-12 px-6 text-base bg-primary hover:bg-primary/90 glow'
 						onClick={() =>
 							window.open(
-								'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/latest/download/LiteTrans-1.0.0.dmg',
+								'https://github.com/xiaowulang-turbo/LiteTrans-Releases/releases/download/v1.0.0/LiteTrans-1.0.0-arm64.dmg',
 								'_blank'
 							)
 						}
